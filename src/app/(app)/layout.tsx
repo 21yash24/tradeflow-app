@@ -20,6 +20,9 @@ import { useTheme } from "next-themes";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
 import {
@@ -118,6 +121,12 @@ function MobileBottomNav() {
                         </button>
                     </SheetTrigger>
                     <SheetContent side="bottom" className="h-auto pb-6">
+                        <SheetHeader className="sr-only">
+                          <SheetTitle>More Options</SheetTitle>
+                          <SheetDescription>
+                            Access additional app settings and options like theme toggling.
+                          </SheetDescription>
+                        </SheetHeader>
                          <nav className="flex flex-col gap-2 mt-4">
                             <Link href="/settings" className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground">
                                 <Settings className="w-5 h-5" />
