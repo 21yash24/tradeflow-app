@@ -12,6 +12,7 @@ import {
   Sun,
   LogOut,
   User,
+  ClipboardCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ import { useEffect } from "react";
 const navItems = [
     { href: "/journal", icon: BookOpenCheck, label: "Journal" },
     { href: "/analytics", icon: BarChart3, label: "Analytics" },
+    { href: "/discipline", icon: ClipboardCheck, label: "Discipline" },
     { href: "/community", icon: Users, label: "Community" },
     { href: "/economic-news", icon: Newspaper, label: "Economic News" },
     { href: "/profile", icon: User, label: "Profile" },
@@ -161,11 +163,13 @@ function DesktopSidebar() {
 function MobileBottomNav() {
     const pathname = usePathname();
     const isActive = (path: string) => pathname.startsWith(path);
+    const mainNavItems = navItems.filter(item => item.href !== '/profile' && item.href !== '/settings');
+
 
     return (
          <div className="lg:hidden fixed bottom-0 left-0 z-50 w-full h-16 bg-card border-t border-border">
             <div className="grid h-full max-w-lg grid-cols-5 mx-auto font-medium">
-                {navItems.map(item => (
+                {mainNavItems.map(item => (
                     <TooltipProvider key={item.href}>
                          <Tooltip>
                             <TooltipTrigger asChild>
@@ -230,4 +234,3 @@ export default function AppLayout({
     </div>
   );
 }
-

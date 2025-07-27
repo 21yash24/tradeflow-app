@@ -1,78 +1,83 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, Bot, BrainCircuit, Loader2 } from 'lucide-react';
-import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, getDay, isEqual, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2 } from 'lucide-react';
+import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { backtestStrategy, type BacktestResult, type BacktestStrategyInput } from '@/ai/flows/backtester-flow';
+import { backtestStrategy, type BacktestResult } from '@/ai/flows/backtester-flow';
 import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth, db } from '@/lib/firebase';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import type { Trade } from '@/components/add-trade-form';
 
-// Mock data simulating multiple trading accounts
-const tradingData: Record<string, { name: string; trades: any[] }> = {
-    'acc-1': {
-        name: 'Primary Account ($10k)',
-        trades: [
-          { date: '2024-07-01', pnl: -221.71, trades: 2, pair: 'EUR/USD' },
-          { date: '2024-07-02', pnl: 271.30, trades: 5, pair: 'GBP/JPY' },
-          { date: '2024-07-03', pnl: 150.00, trades: 1, pair: 'EUR/USD' },
-          { date: '2024-07-08', pnl: -50.25, trades: 1, pair: 'AUD/CAD' },
-          { date: '2024-07-10', pnl: 591.58, trades: 4, pair: 'EUR/USD' },
-          { date: '2024-07-14', pnl: 316.28, trades: 3, pair: 'USD/CHF' },
-          { date: '2024-07-16', pnl: -225.46, trades: 2, pair: 'GBP/JPY' },
-          { date: '2024-07-17', pnl: 444.54, trades: 2, pair: 'EUR/USD' },
-          { date: '2024-07-21', pnl: 6.81, trades: 2, pair: 'AUD/CAD' },
-          { date: '2024-07-22', pnl: 0.78, trades: 1, pair: 'USD/CHF' },
-          { date: '2024-07-23', pnl: 549.04, trades: 3, pair: 'GBP/JPY' },
-          { date: '2024-07-29', pnl: -120.90, trades: 2, pair: 'EUR/USD' },
-        ]
-    },
-    'acc-2': {
-        name: 'Prop Firm Challenge ($100k)',
-        trades: [
-            { date: '2024-07-01', pnl: 1050.50, trades: 1, pair: 'XAU/USD' },
-            { date: '2024-07-03', pnl: -550.00, trades: 1, pair: 'US30' },
-            { date: '2024-07-05', pnl: 2300.75, trades: 2, pair: 'XAU/USD' },
-            { date: '2024-07-09', pnl: -800.25, trades: 3, pair: 'NAS100' },
-            { date: '2024-07-11', pnl: 3100.00, trades: 1, pair: 'XAU/USD' },
-            { date: '2024-07-15', pnl: -1200.00, trades: 2, pair: 'US30' },
-        ]
-    },
-    'acc-3': {
-        name: 'Swing Account ($25k)',
-        trades: [
-             { date: '2024-06-10', pnl: 850.00, trades: 1, pair: 'USD/JPY' },
-             { date: '2024-06-20', pnl: -300.00, trades: 1, pair: 'EUR/AUD' },
-             { date: '2024-07-05', pnl: 1250.00, trades: 1, pair: 'GBP/USD' },
-        ]
-    }
+
+const accountIdToName: Record<string, string> = {
+    "acc-1": "Primary Account ($10k)",
+    "acc-2": "Prop Firm Challenge ($100k)",
+    "acc-3": "Swing Account ($25k)"
 };
 
+// Mock data for accounts since we don't have an account management page yet
+const mockAccounts = [
+    { id: 'acc-1', name: 'Primary Account ($10k)' },
+    { id: 'acc-2', name: 'Prop Firm Challenge ($100k)' },
+    { id: 'acc-3', name: 'Swing Account ($25k)' },
+];
+
+
 const PerformanceDashboard = () => {
-    const [currentDate, setCurrentDate] = useState(new Date('2024-07-01'));
+    const [user] = useAuthState(auth);
+    const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedAccount, setSelectedAccount] = useState('acc-1');
+    const [trades, setTrades] = useState<Trade[]>([]);
+    const [isLoadingTrades, setIsLoadingTrades] = useState(true);
+
+     useEffect(() => {
+        if (user) {
+            setIsLoadingTrades(true);
+            const q = query(
+                collection(db, "trades"),
+                where("userId", "==", user.uid),
+                where("accountId", "==", selectedAccount)
+            );
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const tradesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Trade[];
+                setTrades(tradesData);
+                setIsLoadingTrades(false);
+            });
+            return () => unsubscribe();
+        }
+    }, [user, selectedAccount]);
+
 
      const analyticsData = useMemo(() => {
-        const trades = tradingData[selectedAccount].trades;
+        if (isLoadingTrades) {
+            return {
+                 totalTrades: 0, winningTrades: 0, losingTrades: 0, winRate: 0, totalPnl: 0,
+                 avgWin: 0, avgLoss: 0, profitFactor: 0, cumulativePnlData: [], pnlByPairData: [], tradesByDay: {}
+            }
+        }
+
         const totalTrades = trades.length;
         const winningTrades = trades.filter(t => t.pnl > 0).length;
         const losingTrades = trades.filter(t => t.pnl <= 0).length;
         const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
         const totalPnl = trades.reduce((sum, t) => sum + t.pnl, 0);
         const totalWon = trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
-        const totalLost = trades.filter(t => t.pnl <= 0).reduce((sum, t) => Math.abs(sum + t.pnl), 0);
+        const totalLost = trades.filter(t => t.pnl <= 0).reduce((sum, t) => Math.abs(t.pnl), 0);
         const avgWin = winningTrades > 0 ? totalWon / winningTrades : 0;
         const avgLoss = losingTrades > 0 ? totalLost / losingTrades : 0;
         const profitFactor = totalLost > 0 ? totalWon / totalLost : 0;
@@ -103,7 +108,7 @@ const PerformanceDashboard = () => {
                 acc[dateKey] = { pnl: 0, trades: 0 };
             }
             acc[dateKey].pnl += trade.pnl;
-            acc[dateKey].trades += trade.trades;
+            acc[dateKey].trades += 1;
             return acc;
         }, {} as Record<string, { pnl: number, trades: number }>);
         
@@ -112,7 +117,7 @@ const PerformanceDashboard = () => {
             avgWin, avgLoss, profitFactor, cumulativePnlData, pnlByPairData, tradesByDay
         };
 
-    }, [selectedAccount]);
+    }, [trades, isLoadingTrades]);
     
     const firstDayOfMonth = startOfMonth(currentDate);
     const lastDayOfMonth = endOfMonth(currentDate);
@@ -125,6 +130,16 @@ const PerformanceDashboard = () => {
     const nextMonth = () => setCurrentDate(add(currentDate, { months: 1 }));
     const prevMonth = () => setCurrentDate(add(currentDate, { months: -1 }));
 
+    if (isLoadingTrades) {
+        return (
+             <div className="flex flex-col items-center justify-center text-center gap-4 p-8 rounded-lg">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <h3 className="text-xl font-semibold">Loading Performance Data</h3>
+                <p className="text-muted-foreground">Please wait while we fetch your trading records...</p>
+            </div>
+        )
+    }
+
     return (
         <div className="space-y-6">
              <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -133,7 +148,7 @@ const PerformanceDashboard = () => {
                             <SelectValue placeholder="Select an account" />
                         </SelectTrigger>
                         <SelectContent>
-                            {Object.entries(tradingData).map(([id, { name }]) => (
+                            {mockAccounts.map(({ id, name }) => (
                                 <SelectItem key={id} value={id}>{name}</SelectItem>
                             ))}
                         </SelectContent>
@@ -226,7 +241,10 @@ const PerformanceDashboard = () => {
                                         borderColor: "hsl(var(--border))"
                                     }}
                                 />
-                                <Bar dataKey="pnl" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}>
+                                <Bar dataKey="pnl" radius={[0, 4, 4, 0]}>
+                                     {analyticsData.pnlByPairData.map((entry, index) => (
+                                        <div key={`cell-${index}`} className={cn(entry.pnl > 0 ? "fill-primary" : "fill-red-400")} />
+                                     ))}
                                      <LabelList 
                                         dataKey="pnl" 
                                         position="right" 

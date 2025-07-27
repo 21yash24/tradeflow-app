@@ -3,15 +3,16 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Wand2, Loader2, Info, BarChart2, Bell } from "lucide-react";
+import { ChevronLeft, ChevronRight, Wand2, Loader2, Info, BarChart2, Bell, Sparkles } from "lucide-react";
 import { format, startOfWeek, endOfWeek, add, sub } from 'date-fns';
 import React, { useState, useEffect, useMemo } from 'react';
 import { getEconomicNews, type EconomicEvent } from '@/services/economic-news';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { generateMarketBriefing, MarketBriefing } from "@/ai/flows/market-briefing-flow";
+import { analyzeSentiment, SentimentAnalysis } from "@/ai/flows/sentiment-analysis-flow";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 
 const getImpactColor = (impact: string) => {
@@ -39,7 +40,10 @@ export default function EconomicNewsPage() {
     const [events, setEvents] = useState<EconomicEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
     const [briefing, setBriefing] = useState<MarketBriefing | null>(null);
+    const [sentiment, setSentiment] = useState<SentimentAnalysis | null>(null);
+    const { toast } = useToast();
 
     const start = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
     const end = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -49,7 +53,7 @@ export default function EconomicNewsPage() {
             setIsLoading(true);
             const from = format(start, 'yyyy-MM-dd');
             const to = format(end, 'yyyy-MM-dd');
-            const fetchedEvents = await getEconomicNews(from, to); 
+            const fetchedEvents = await getEconomicNews(from, to);
             setEvents(fetchedEvents);
             setIsLoading(false);
         };
@@ -79,8 +83,32 @@ export default function EconomicNewsPage() {
             setBriefing(result);
         } catch (error) {
             console.error("Error generating market briefing:", error);
+            toast({ title: 'Error', description: 'Failed to generate market briefing.', variant: 'destructive' });
         } finally {
             setIsGenerating(false);
+        }
+    }
+    
+    const handleAnalyzeSentiment = async (event: EconomicEvent) => {
+        const eventIdentifier = `${event.date}-${event.event}`;
+        setIsAnalyzing(eventIdentifier);
+        setSentiment(null);
+
+        // This is a placeholder as we don't have real article URLs
+        const mockArticleUrl = `https://www.google.com/search?q=${encodeURIComponent(event.event)}`;
+
+        try {
+            const result = await analyzeSentiment({
+                 articleUrl: mockArticleUrl,
+                 trackedPairs: ["EUR/USD", "GBP/JPY", "USD/CHF"]
+            });
+            setSentiment(result);
+            toast({ title: 'Sentiment Analysis Complete', description: `Analysis for "${event.event}" is ready.`});
+        } catch (error) {
+            console.error("Error analyzing sentiment:", error);
+            toast({ title: 'Error', description: 'Failed to analyze sentiment.', variant: 'destructive' });
+        } finally {
+            setIsAnalyzing(null);
         }
     }
 
@@ -144,6 +172,32 @@ export default function EconomicNewsPage() {
                 </CardContent>
             </Card>
 
+            {sentiment && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>AI Sentiment Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                         <Alert>
+                            <Sparkles className="h-4 w-4" />
+                            <AlertTitle className="font-semibold">Overall Sentiment: {sentiment.overallSentiment}</AlertTitle>
+                            <AlertDescription>
+                                {sentiment.summary}
+                            </AlertDescription>
+                        </Alert>
+                        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                            {sentiment.pairSentiments.map(ps => (
+                                <Card key={ps.pair} className="p-4">
+                                    <p className="font-semibold">{ps.pair}</p>
+                                    <p className="text-sm">Sentiment: <span className="font-medium">{ps.sentiment}</span></p>
+                                    <p className="text-sm text-muted-foreground mt-1">{ps.reasoning}</p>
+                                </Card>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             <Card>
                 <CardHeader>
                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -179,7 +233,7 @@ export default function EconomicNewsPage() {
                             {isLoading ? (
                                 <TableRow>
                                     <TableCell colSpan={8} className="text-center py-12">
-                                        Loading economic events...
+                                        <Loader2 className="mx-auto h-6 w-6 animate-spin" />
                                     </TableCell>
                                 </TableRow>
                             ) : Object.keys(groupedEvents).length === 0 ? (
@@ -196,8 +250,12 @@ export default function EconomicNewsPage() {
                                             {date}
                                         </TableCell>
                                     </TableRow>
-                                    {dayEvents.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((event, index) => (
-                                        <TableRow key={index} className="hover:bg-muted/50">
+                                    {dayEvents.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((event) => {
+                                        const eventIdentifier = `${event.date}-${event.event}`;
+                                        const isAnalyzingEvent = isAnalyzing === eventIdentifier;
+
+                                        return (
+                                        <TableRow key={eventIdentifier} className="hover:bg-muted/50">
                                             <TableCell>{format(new Date(event.date), 'p')}</TableCell>
                                             <TableCell className="font-medium">{event.country}</TableCell>
                                             <TableCell>
@@ -217,14 +275,25 @@ export default function EconomicNewsPage() {
                                             <TableCell className="text-right">{event.forecast ?? 'N/A'}</TableCell>
                                             <TableCell className="text-right">{event.previous ?? 'N/A'}</TableCell>
                                             <TableCell className="text-center">
-                                                <div className="flex justify-center gap-2">
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7"><Info className="h-4 w-4"/></Button>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7"><BarChart2 className="h-4 w-4"/></Button>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7"><Bell className="h-4 w-4"/></Button>
+                                                <TooltipProvider>
+                                                <div className="flex justify-center gap-1">
+                                                     <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleAnalyzeSentiment(event)} disabled={isAnalyzingEvent}>
+                                                                {isAnalyzingEvent ? <Loader2 className="h-4 w-4 animate-spin"/> : <Sparkles className="h-4 w-4"/>}
+                                                             </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent><p>Analyze Sentiment</p></TooltipContent>
+                                                    </Tooltip>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><Bell className="h-4 w-4"/></Button></TooltipTrigger>
+                                                        <TooltipContent><p>Set Alert</p></TooltipContent>
+                                                    </Tooltip>
                                                 </div>
+                                                </TooltipProvider>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                    )})}
                                 </React.Fragment>
                             )))}
                         </TableBody>
@@ -234,4 +303,3 @@ export default function EconomicNewsPage() {
         </div>
     );
 }
-
