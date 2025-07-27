@@ -1,91 +1,116 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Repeat } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Loader2 } from 'lucide-react';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth, db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { formatDistanceToNow } from 'date-fns';
 
-const CommunityPost = ({ post }: { post: any }) => (
-    <Card className="mb-4 hover:shadow-lg transition-shadow duration-300">
-        <CardContent className="p-4">
-            <div className="flex items-start gap-4">
-                <Avatar>
-                    <AvatarImage src={post.avatarUrl} data-ai-hint="profile avatar" />
-                    <AvatarFallback>{post.fallback}</AvatarFallback>
-                </Avatar>
-                <div className="w-full">
-                    <div className="flex items-center gap-2">
-                        <h4 className="font-semibold">{post.author}</h4>
-                        <span className="text-sm text-muted-foreground">@{post.handle}</span>
-                        <span className="text-sm text-muted-foreground">· {post.time}</span>
-                    </div>
-                    <p className="mt-2 text-foreground/90">{post.content}</p>
-                    <div className="mt-4 flex justify-between items-center text-muted-foreground max-w-xs">
-                        <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-blue-500">
-                           <MessageCircle size={18} /> 
-                           <span>{post.replies}</span>
-                        </Button>
-                        <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-green-500">
-                           <Repeat size={18} /> 
-                           <span>{post.retweets}</span>
-                        </Button>
-                        <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-red-500">
-                           <Heart size={18} /> 
-                           <span>{post.likes}</span>
-                        </Button>
+type Post = {
+    id: string;
+    authorId: string;
+    authorName: string;
+    authorHandle: string;
+    authorAvatar: string | null;
+    content: string;
+    createdAt: any;
+    likes: number;
+    replies: number;
+    retweets: number;
+};
+
+const CommunityPost = ({ post }: { post: Post }) => {
+    const postDate = post.createdAt?.toDate();
+    const timeAgo = postDate ? formatDistanceToNow(postDate, { addSuffix: true }) : 'just now';
+
+    return (
+        <Card className="mb-4 hover:shadow-lg transition-shadow duration-300">
+            <CardContent className="p-4">
+                <div className="flex items-start gap-4">
+                    <Avatar>
+                        <AvatarImage src={post.authorAvatar || `https://placehold.co/100x100.png`} data-ai-hint="profile avatar" />
+                        <AvatarFallback>{post.authorName?.substring(0, 2) || 'U'}</AvatarFallback>
+                    </Avatar>
+                    <div className="w-full">
+                        <div className="flex items-center gap-2">
+                            <h4 className="font-semibold">{post.authorName}</h4>
+                            <span className="text-sm text-muted-foreground">@{post.authorHandle}</span>
+                            <span className="text-sm text-muted-foreground">· {timeAgo}</span>
+                        </div>
+                        <p className="mt-2 text-foreground/90 whitespace-pre-wrap">{post.content}</p>
+                        <div className="mt-4 flex justify-between items-center text-muted-foreground max-w-xs">
+                            <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-blue-500">
+                               <MessageCircle size={18} /> 
+                               <span>{post.replies}</span>
+                            </Button>
+                            <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-green-500">
+                               <Repeat size={18} /> 
+                               <span>{post.retweets}</span>
+                            </Button>
+                            <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-red-500">
+                               <Heart size={18} /> 
+                               <span>{post.likes}</span>
+                            </Button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </CardContent>
-    </Card>
-);
-
-
-const mockPosts = [
-    {
-        id: 1,
-        author: 'TraderAlex',
-        handle: 'alex_trades',
-        avatarUrl: 'https://placehold.co/100x100.png',
-        fallback: 'TA',
-        time: '2h',
-        content: 'Caught a beautiful breakout on $EURUSD during the London session. Price broke above the range high, retested, and flew. Simple, clean, effective. Patience pays off!',
-        replies: 12,
-        retweets: 25,
-        likes: 102
-    },
-    {
-        id: 2,
-        author: 'JessicaFX',
-        handle: 'jessica_fx',
-        avatarUrl: 'https://placehold.co/100x100.png',
-        fallback: 'JF',
-        time: '5h',
-        content: 'Mistake of the day: Revenge trading after a small loss on $GBPUSD. Forced a setup that wasn\'t there and paid the price. A good reminder to step away and reset after a loss.',
-        replies: 34,
-        retweets: 15,
-        likes: 150
-    },
-     {
-        id: 3,
-        author: 'MomentumMike',
-        handle: 'mike_pips',
-        avatarUrl: 'https://placehold.co/100x100.png',
-        fallback: 'MM',
-        time: '1d',
-        content: 'Looking at a potential short on $XAUUSD. We\'re seeing bearish divergence on the 4H chart and a rejection from a key resistance level. Waiting for confirmation on the 1H timeframe before entering.',
-        replies: 45,
-        retweets: 88,
-        likes: 231
-    },
-];
+            </CardContent>
+        </Card>
+    );
+};
 
 
 const CommunityPage = () => {
+    const [user] = useAuthState(auth);
+    const { toast } = useToast();
+    const [posts, setPosts] = useState<Post[]>([]);
+    const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+    const [newPostContent, setNewPostContent] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+            setPosts(postsData);
+            setIsLoadingPosts(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    const handlePostSubmit = async () => {
+        if (!user || !newPostContent.trim()) return;
+
+        setIsSubmitting(true);
+        try {
+            await addDoc(collection(db, 'posts'), {
+                authorId: user.uid,
+                authorName: user.displayName,
+                authorHandle: user.displayName?.toLowerCase().replace(/\s/g, '_') || 'user',
+                authorAvatar: user.photoURL,
+                content: newPostContent,
+                createdAt: serverTimestamp(),
+                likes: 0,
+                replies: 0,
+                retweets: 0,
+            });
+            setNewPostContent('');
+            toast({ title: "Post published!", description: "Your thoughts have been shared with the community." });
+        } catch (error) {
+            console.error("Error creating post:", error);
+            toast({ title: "Error", description: "Could not publish your post.", variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold font-headline">Community Hub</h1>
@@ -93,24 +118,42 @@ const CommunityPage = () => {
             <CardContent className="p-4 space-y-4">
                 <div className="flex gap-4">
                     <Avatar>
-                        <AvatarImage src="https://placehold.co/100x100.png" data-ai-hint="profile avatar" />
-                        <AvatarFallback>TP</AvatarFallback>
+                        <AvatarImage src={user?.photoURL || `https://placehold.co/100x100.png`} data-ai-hint="profile avatar" />
+                        <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                     <Textarea 
                         placeholder="What's on your mind, trader?" 
                         className="bg-background border-2 border-transparent focus-visible:ring-primary focus-visible:border-primary"
+                        value={newPostContent}
+                        onChange={(e) => setNewPostContent(e.target.value)}
+                        disabled={isSubmitting}
                     />
                 </div>
                 <div className="flex justify-end">
-                    <Button>Post</Button>
+                    <Button onClick={handlePostSubmit} disabled={isSubmitting || !newPostContent.trim()}>
+                        {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Posting...</> : 'Post'}
+                    </Button>
                 </div>
             </CardContent>
         </Card>
 
         <div>
-            {mockPosts.map((post) => (
-                <CommunityPost key={post.id} post={post} />
-            ))}
+            {isLoadingPosts ? (
+                 <div className="flex flex-col items-center justify-center text-center gap-4 p-8 rounded-lg">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    <h3 className="text-xl font-semibold">Loading Community Feed</h3>
+                </div>
+            ) : posts.length === 0 ? (
+                 <div className="text-center py-16 text-muted-foreground">
+                    <MessageCircle size={48} className="mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold">It's quiet in here...</h3>
+                    <p>Be the first to share something with the community!</p>
+                </div>
+            ) : (
+                posts.map((post) => (
+                    <CommunityPost key={post.id} post={post} />
+                ))
+            )}
         </div>
     </div>
   );
