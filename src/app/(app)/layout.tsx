@@ -51,7 +51,6 @@ const navItems = [
 ];
 
 function UserProfileDropdown() {
-    const { setTheme } = useTheme();
     const [user] = useAuthState(auth);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const router = useRouter();
@@ -67,11 +66,6 @@ function UserProfileDropdown() {
             return () => unsubscribe();
         }
     }, [user]);
-
-    const handleLogout = async () => {
-        await signOut(auth);
-        router.push('/login');
-    };
 
     if (!user) return null;
 
@@ -106,20 +100,6 @@ function UserProfileDropdown() {
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Settings</span>
                     </Link>
-                </DropdownMenuItem>
-                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setTheme("light")}>
-                    <Sun className="mr-2 h-4 w-4" />
-                    <span>Light Mode</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("dark")}>
-                    <Moon className="mr-2 h-4 w-4" />
-                    <span>Dark Mode</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                 <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

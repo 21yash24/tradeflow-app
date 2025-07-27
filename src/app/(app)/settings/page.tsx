@@ -2,20 +2,19 @@
 'use client';
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState, useRef } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { type UserProfile, type ChecklistItem } from "@/services/user-service";
-import { Loader2, Upload, Trash2, PlusCircle, User, ListChecks } from "lucide-react";
-import { updateProfile } from "firebase/auth";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Trash2, PlusCircle, ListChecks, Sun, Moon, LogOut, Info } from "lucide-react";
+import { useTheme } from "next-themes";
+import { signOut } from 'firebase/auth';
+import { useRouter } from "next/navigation";
 
 
 const defaultPreTradeChecklist: ChecklistItem[] = [
@@ -84,11 +83,12 @@ function ChecklistManager({ title, description, items, setItems }: { title: stri
 
 export default function SettingsPage() {
     const { toast } = useToast();
+    const router = useRouter();
+    const { setTheme } = useTheme();
     const [user] = useAuthState(auth);
     const [profile, setProfile] = useState<Partial<UserProfile>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (user) {
@@ -110,32 +110,13 @@ export default function SettingsPage() {
         }
     }, [user]);
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { id, value } = e.target;
-        setProfile(prev => ({ ...prev, [id]: value }));
-    };
-
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setProfile(prev => ({...prev, photoURL: reader.result as string}));
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleChecklistSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !auth.currentUser) return;
+        if (!user) return;
         
         setIsSaving(true);
         try {
             const firestoreDataToUpdate: Partial<UserProfile> = {
-                displayName: profile.displayName,
-                bio: profile.bio,
-                photoURL: profile.photoURL,
                 preTradeChecklist: profile.preTradeChecklist,
                 disciplineChecklist: profile.disciplineChecklist,
             };
@@ -143,26 +124,25 @@ export default function SettingsPage() {
             const userDocRef = doc(db, 'users', user.uid);
             await updateDoc(userDocRef, firestoreDataToUpdate);
             
-            if (profile.displayName !== auth.currentUser.displayName) {
-                 await updateProfile(auth.currentUser, {
-                    displayName: profile.displayName,
-                 });
-            }
-
             toast({
-                title: "Settings Saved",
-                description: "Your changes have been saved successfully.",
+                title: "Checklists Saved",
+                description: "Your checklist settings have been saved successfully.",
             });
         } catch (error) {
-            console.error("Error updating profile:", error);
+            console.error("Error updating checklists:", error);
             toast({
                 title: "Error",
-                description: "Could not save your settings.",
+                description: "Could not save your checklists.",
                 variant: "destructive",
             });
         } finally {
             setIsSaving(false);
         }
+    };
+    
+    const handleLogout = async () => {
+        await signOut(auth);
+        router.push('/login');
     };
 
     if (isLoading) {
@@ -180,76 +160,71 @@ export default function SettingsPage() {
                 Settings
             </h1>
             <p className="text-muted-foreground mt-2">
-                Manage your public profile and checklist settings.
+                Manage your application settings and account.
             </p>
         </div>
-        <form onSubmit={handleSubmit}>
-            <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="profile"><User className="mr-2" />Profile</TabsTrigger>
-                    <TabsTrigger value="checklists"><ListChecks className="mr-2" />Checklists</TabsTrigger>
-                </TabsList>
-                <TabsContent value="profile" className="mt-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Public Details</CardTitle>
-                            <CardDescription>This information will be displayed on your profile.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="space-y-2">
-                                <Label>Avatar</Label>
-                                <div className="flex items-center gap-4">
-                                    <Avatar className="h-20 w-20">
-                                        <AvatarImage src={profile.photoURL || `https://placehold.co/150x150.png`} data-ai-hint="profile avatar" />
-                                        <AvatarFallback>{profile.displayName?.charAt(0) || 'U'}</AvatarFallback>
-                                    </Avatar>
-                                    <Input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        ref={fileInputRef}
-                                        onChange={handleFileChange}
-                                    />
-                                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Upload Image
-                                    </Button>
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="displayName">Display Name</Label>
-                                <Input id="displayName" value={profile.displayName || ''} onChange={handleInputChange} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="bio">Bio</Label>
-                                <Textarea id="bio" placeholder="Tell us a little about your trading style." value={profile.bio || ''} onChange={handleInputChange} />
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-                <TabsContent value="checklists" className="mt-6 space-y-6">
-                    <ChecklistManager 
-                        title="Pre-Trade Checklist"
-                        description="Customize the checklist that appears before you log a trade."
-                        items={profile.preTradeChecklist || []}
-                        setItems={(items) => setProfile(p => ({...p, preTradeChecklist: items}))}
-                    />
-                    <ChecklistManager 
-                        title="Daily Discipline Checklist"
-                        description="Customize your daily habit tracker."
-                        items={profile.disciplineChecklist || []}
-                        setItems={(items) => setProfile(p => ({...p, disciplineChecklist: items}))}
-                    />
-                </TabsContent>
-            </Tabs>
-            <div className="flex justify-end mt-8">
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Appearance</CardTitle>
+                <CardDescription>Customize the look and feel of the app.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-center space-x-2">
+                    <Button variant="outline" onClick={() => setTheme('light')}><Sun className="mr-2 h-4 w-4"/>Light</Button>
+                    <Button variant="outline" onClick={() => setTheme('dark')}><Moon className="mr-2 h-4 w-4"/>Dark</Button>
+                </div>
+            </CardContent>
+        </Card>
+
+        <form onSubmit={handleChecklistSubmit}>
+            <div className="space-y-6">
+                <ChecklistManager 
+                    title="Pre-Trade Checklist"
+                    description="Customize the checklist that appears before you log a trade."
+                    items={profile.preTradeChecklist || []}
+                    setItems={(items) => setProfile(p => ({...p, preTradeChecklist: items}))}
+                />
+                <ChecklistManager 
+                    title="Daily Discipline Checklist"
+                    description="Customize your daily habit tracker."
+                    items={profile.disciplineChecklist || []}
+                    setItems={(items) => setProfile(p => ({...p, disciplineChecklist: items}))}
+                />
+            </div>
+            <div className="flex justify-end mt-4">
                 <Button type="submit" disabled={isSaving}>
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save All Changes
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ListChecks className="mr-2 h-4 w-4" />}
+                    Save Checklists
                 </Button>
             </div>
         </form>
+
+        <Card>
+             <CardHeader>
+                <CardTitle>About TradeFlow</CardTitle>
+             </CardHeader>
+             <CardContent>
+                <p className="text-sm text-muted-foreground">TradeFlow is your personal trading journal and analytics copilot, designed to help you become a more disciplined and data-driven trader. Track your trades, analyze your performance, and master your psychology.</p>
+             </CardContent>
+             <CardFooter>
+                <p className="text-xs text-muted-foreground">Version 1.0.0</p>
+             </CardFooter>
+        </Card>
+
+         <Card>
+             <CardHeader>
+                <CardTitle>Account</CardTitle>
+                <CardDescription>Manage your account settings.</CardDescription>
+             </CardHeader>
+             <CardContent>
+                 <Button variant="destructive" onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log Out
+                 </Button>
+             </CardContent>
+        </Card>
+
     </div>
   );
 }
-

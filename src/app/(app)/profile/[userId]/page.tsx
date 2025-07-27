@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Grid3x3, Bookmark, MessageCircle, Repeat, Heart } from 'lucide-react';
+import { Grid3x3, Bookmark, MessageCircle, Repeat, Heart, Edit } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, doc } from 'firebase/firestore';
@@ -16,6 +16,19 @@ import { followUser, unfollowUser, type UserProfile } from '@/services/user-serv
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { useParams } from 'next/navigation';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { updateProfile } from 'firebase/auth';
+import { updateDoc } from 'firebase/firestore';
+
 
 type Post = {
     id: string;
@@ -29,6 +42,117 @@ type Post = {
     replies: number;
     retweets: number;
 };
+
+const EditProfileDialog = ({ userProfile }: { userProfile: UserProfile }) => {
+    const { toast } = useToast();
+    const [currentUser] = useAuthState(auth);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+    
+    const [displayName, setDisplayName] = useState(userProfile.displayName);
+    const [bio, setBio] = useState(userProfile.bio);
+    const [photoURL, setPhotoURL] = useState(userProfile.photoURL);
+    const fileInputRef = useState<HTMLInputElement>(null);
+
+     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPhotoURL(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!currentUser || !auth.currentUser) return;
+        
+        setIsSaving(true);
+        try {
+            const firestoreDataToUpdate: Partial<UserProfile> = {
+                displayName: displayName,
+                bio: bio,
+                photoURL: photoURL,
+            };
+
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            await updateDoc(userDocRef, firestoreDataToUpdate);
+            
+            if (displayName !== auth.currentUser.displayName || photoURL !== auth.currentUser.photoURL) {
+                 await updateProfile(auth.currentUser, {
+                    displayName: displayName,
+                    photoURL: photoURL,
+                 });
+            }
+
+            toast({
+                title: "Profile Updated",
+                description: "Your changes have been saved successfully.",
+            });
+            setIsOpen(false);
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            toast({
+                title: "Error",
+                description: "Could not save your profile.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button className="flex-1"><Edit className="mr-2 h-4 w-4" /> Edit Profile</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit your profile</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Avatar</Label>
+                        <div className="flex items-center gap-4">
+                            <Avatar className="h-20 w-20">
+                                <AvatarImage src={photoURL || `https://placehold.co/150x150.png`} data-ai-hint="profile avatar" />
+                                <AvatarFallback>{displayName?.charAt(0) || 'U'}</AvatarFallback>
+                            </Avatar>
+                            <Input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                            />
+                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                Upload Image
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="displayName">Display Name</Label>
+                        <Input id="displayName" value={displayName || ''} onChange={(e) => setDisplayName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="bio">Bio</Label>
+                        <Textarea id="bio" placeholder="Tell us about your trading style." value={bio || ''} onChange={(e) => setBio(e.target.value)} />
+                    </div>
+                    <div className="flex justify-end">
+                        <Button type="submit" disabled={isSaving}>
+                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Save Changes
+                        </Button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 
 const UserStat = ({ value, label }: { value: string | number; label: string }) => (
@@ -144,7 +268,6 @@ export default function UserProfilePage() {
                 setProfileUser(doc.data() as UserProfile);
             } else {
                 console.error("User not found");
-                // Potentially redirect to a 404 page
             }
             setIsLoading(false);
         });
@@ -217,7 +340,7 @@ export default function UserProfilePage() {
                     <div className="flex gap-2 mt-4">
                         {isCurrentUserProfile ? (
                             <>
-                                <Button asChild className="flex-1"><Link href="/settings">Edit Profile</Link></Button>
+                                <EditProfileDialog userProfile={profileUser} />
                                 <Button variant="outline" className="flex-1">Share Profile</Button>
                             </>
                         ) : (
@@ -271,5 +394,3 @@ export default function UserProfilePage() {
         </div>
     );
 }
-
-    
