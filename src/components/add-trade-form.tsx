@@ -34,6 +34,7 @@ import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
 
 const formSchema = z.object({
+  accountId: z.string().min(1, "Account is required."),
   pair: z.string().min(1, "Currency pair is required."),
   date: z.date({ required_error: "A date is required." }),
   type: z.enum(["buy", "sell"]),
@@ -119,6 +120,7 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      accountId: "acc-1",
       pair: "",
       type: "buy",
       pnl: 0,
@@ -140,6 +142,28 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <FormField
+            control={form.control}
+            name="accountId"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Account</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select an account" />
+                    </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        <SelectItem value="acc-1">Primary Account ($10k)</SelectItem>
+                        <SelectItem value="acc-2">Prop Firm Challenge ($100k)</SelectItem>
+                        <SelectItem value="acc-3">Swing Account ($25k)</SelectItem>
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
+            )}
+        />
         <FormField
           control={form.control}
           name="pair"

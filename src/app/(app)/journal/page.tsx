@@ -27,6 +27,7 @@ import { AddTradeFlow, type Trade } from "@/components/add-trade-form";
 const initialTrades: Trade[] = [
   {
     id: "1",
+    accountId: "acc-1",
     pair: "EUR/USD",
     date: "2024-05-20",
     type: "buy",
@@ -38,6 +39,7 @@ const initialTrades: Trade[] = [
   },
   {
     id: "2",
+    accountId: "acc-1",
     pair: "GBP/JPY",
     date: "2024-05-19",
     type: "sell",
@@ -49,6 +51,7 @@ const initialTrades: Trade[] = [
   },
   {
     id: "3",
+    accountId: "acc-2",
     pair: "AUD/CAD",
     date: "2024-05-18",
     type: "buy",
@@ -65,6 +68,7 @@ export default function JournalPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleAddTrade = (newTrade: Omit<Trade, 'id'>) => {
+    console.log("New trade added:", newTrade);
     setTrades(prevTrades => [
         { ...newTrade, id: (prevTrades.length + 1).toString() },
         ...prevTrades
