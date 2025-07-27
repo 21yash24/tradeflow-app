@@ -141,7 +141,7 @@ export default function SettingsPage() {
             const userDocRef = doc(db, 'users', user.uid);
             await updateDoc(userDocRef, firestoreDataToUpdate);
 
-            if (profile.displayName !== user.displayName) {
+            if (profile.displayName !== auth.currentUser.displayName) {
                  await updateAuthProfile(auth.currentUser, {
                     displayName: profile.displayName,
                  });
