@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState, useRef } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { type UserProfile } from "@/services/user-service";
 import { Loader2, Upload } from "lucide-react";
 import { updateProfile } from "firebase/auth";
@@ -61,22 +61,24 @@ export default function SettingsPage() {
         
         setIsSaving(true);
         try {
-            const profileDataToUpdate: Partial<UserProfile> = {
+            // Data to be saved in the Firestore 'users' collection document.
+            // This is where we store the potentially long data URI for the photo.
+            const firestoreDataToUpdate: Partial<UserProfile> = {
                 displayName: profile.displayName,
                 bio: profile.bio,
                 photoURL: profile.photoURL,
             };
 
-            // Update firestore document directly from the client
+            // Update Firestore document. This is fine with the long data URI.
             const userDocRef = doc(db, 'users', user.uid);
-            await updateDoc(userDocRef, profileDataToUpdate);
+            await updateDoc(userDocRef, firestoreDataToUpdate);
 
-
-            // Also update the auth profile if displayName or photoURL changed
-            if (profile.displayName !== user.displayName || profile.photoURL !== user.photoURL) {
+            // Data for the core Firebase Auth user profile.
+            // We ONLY update the displayName here. We DO NOT update the photoURL
+            // to avoid the "URL too long" error.
+            if (profile.displayName !== user.displayName) {
                  await updateProfile(auth.currentUser, {
                     displayName: profile.displayName,
-                    photoURL: profile.photoURL
                  });
             }
 
