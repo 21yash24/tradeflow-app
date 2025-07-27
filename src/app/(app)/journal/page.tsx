@@ -151,7 +151,7 @@ export default function JournalPage() {
   };
   
   const handleDeleteTrade = async (tradeId: string) => {
-    if(window.confirm("Are you sure you want to delete this trade? This action cannot be undone.")){
+    if (window.confirm("Are you sure you want to delete this trade? This action cannot be undone.")) {
         try {
             await deleteDoc(doc(db, "trades", tradeId));
             toast({ title: "Trade Deleted", description: "The trade has been removed from your journal."});
@@ -379,13 +379,12 @@ export default function JournalPage() {
                         )}
                     </div>
                  </div>
-                 <DialogFooter className="pt-4 border-t">
-                    <div className="flex w-full justify-between items-center">
+                 <DialogFooter className="pt-4 mt-4 border-t">
+                     <div className="flex w-full justify-between items-center">
                         <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade!.id)}>
                             <Trash2 className="h-4 w-4" />
                             <span className="sr-only">Delete Trade</span>
                         </Button>
-
                         {!analysisResult && !isAnalyzing && (
                             <Button onClick={handleAnalyzeTrade} className="w-full max-w-xs">
                                 <Wand2 className="mr-2 h-4 w-4" />
@@ -401,5 +400,3 @@ export default function JournalPage() {
     </div>
   );
 }
-
-    
