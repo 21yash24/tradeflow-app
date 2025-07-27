@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronLeft, ChevronRight, Search, Filter, BarChart2, Folder, Bell } from "lucide-react";
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns';
+import React from 'react';
 
 const events = [
     { day: 'Mon', date: 'Jul 28', time: '3:30pm', currency: 'GBP', impact: 'low', detail: 'CBI Realized Sales', actual: '-28', forecast: '-46', previous: '' },
@@ -120,6 +121,3 @@ export default function EconomicNewsPage() {
         </div>
     );
 }
-
-// Dummy React import to satisfy the linter
-import React from 'react';
