@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { CalendarIcon, CheckCircle2, Upload } from "lucide-react";
+import { CalendarIcon, Upload } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -141,7 +141,7 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     onSubmit({
         ...values,
-        date: format(values.date, 'yyyy-MM-dd')
+        date: format(values.date, 'yyyy-MM-dd') as any
     });
     form.reset();
   };
@@ -382,3 +382,5 @@ export function AddTradeFlow({ onSubmit }: { onSubmit: (values: Omit<Trade, 'id'
 
     return <AddTradeForm onSubmit={onSubmit} onBack={() => setStep(1)} />;
 }
+
+    
