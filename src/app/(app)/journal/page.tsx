@@ -357,7 +357,7 @@ export default function JournalPage() {
                     
                     <Separator />
 
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                         {analysisResult && <TradeAnalysisResult analysis={analysisResult} />}
                         
                         {isAnalyzing && (
@@ -367,17 +367,17 @@ export default function JournalPage() {
                             </div>
                         )}
 
-                        {!analysisResult && !isAnalyzing && (
-                            <div className="flex gap-2">
+                        <div className="flex gap-2">
+                            {!analysisResult && !isAnalyzing && (
                                 <Button onClick={handleAnalyzeTrade} className="w-full">
                                     <Wand2 className="mr-2 h-4 w-4" />
                                     Analyze with AI
                                 </Button>
-                                 <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade.id)}>
-                                     <Trash2 className="h-4 w-4" />
-                                 </Button>
-                            </div>
-                        )}
+                            )}
+                            <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade.id)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
 
                  </div>
@@ -387,3 +387,4 @@ export default function JournalPage() {
     </div>
   );
 }
+
