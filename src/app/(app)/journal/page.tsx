@@ -30,6 +30,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { db, auth } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
+import { useToast } from "@/hooks/use-toast";
 
 const accountIdToName: Record<string, string> = {
     "acc-1": "Primary Account ($10k)",
@@ -81,6 +82,7 @@ function TradeAnalysisResult({ analysis }: { analysis: TradeAnalysis }) {
 
 export default function JournalPage() {
   const [user] = useAuthState(auth);
+  const { toast } = useToast();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [isAddTradeDialogOpen, setAddTradeDialogOpen] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
@@ -107,10 +109,26 @@ export default function JournalPage() {
 
   const handleAddTrade = async (newTrade: Omit<Trade, 'id' | 'userId'>) => {
     if (user) {
-      await addDoc(collection(db, "trades"), {
-        ...newTrade,
-        userId: user.uid,
-      });
+        const newTradeWithUser = {
+            ...newTrade,
+            userId: user.uid,
+        };
+        console.log("Attempting to save trade to Firestore:", newTradeWithUser);
+        try {
+            await addDoc(collection(db, "trades"), newTradeWithUser);
+            console.log("Trade saved successfully!");
+            toast({
+                title: "Trade Logged",
+                description: "Your trade has been successfully saved to your journal.",
+            });
+        } catch (error) {
+            console.error("Error saving trade to Firestore:", error);
+            toast({
+                title: "Error",
+                description: "There was a problem saving your trade. Please check the console for details.",
+                variant: "destructive",
+            });
+        }
     }
     setAddTradeDialogOpen(false);
   };
@@ -349,3 +367,5 @@ export default function JournalPage() {
     </div>
   );
 }
+
+    
