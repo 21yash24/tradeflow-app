@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Grid3x3, Bookmark, MessageCircle, Repeat, Heart, Edit } from 'lucide-react';
+import { Grid3x3, Bookmark, MessageCircle, Repeat, Heart, Edit, Loader2 } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, doc } from 'firebase/firestore';
@@ -52,7 +52,7 @@ const EditProfileDialog = ({ userProfile }: { userProfile: UserProfile }) => {
     const [displayName, setDisplayName] = useState(userProfile.displayName);
     const [bio, setBio] = useState(userProfile.bio);
     const [photoURL, setPhotoURL] = useState(userProfile.photoURL);
-    const fileInputRef = useState<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
      const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
