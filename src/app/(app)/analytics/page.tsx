@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2 } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, Pie, PieChart, RadialBar, RadialBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
@@ -230,30 +230,36 @@ const PerformanceDashboard = () => {
                     </CardHeader>
                     <CardContent>
                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={analyticsData.pnlByPairData} layout="vertical" margin={{ left: -10, right: 10 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
-                                <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} width={80} />
-                                <Tooltip
-                                    cursor={{fill: 'hsl(var(--muted))'}}
-                                    contentStyle={{
-                                        backgroundColor: "hsl(var(--background))",
-                                        borderColor: "hsl(var(--border))"
+                            <RadialBarChart 
+                                data={analyticsData.pnlByPairData} 
+                                innerRadius="30%" 
+                                outerRadius="100%"
+                                startAngle={90}
+                                endAngle={-270}
+                            >
+                                <RadialBar
+                                    label={{ position: 'insideStart', fill: '#fff', fontSize: '12px' }}
+                                    background
+                                    dataKey='pnl'
+                                >
+                                    {analyticsData.pnlByPairData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.pnl > 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))'} />
+                                    ))}
+                                </RadialBar>
+                                 <Tooltip
+                                    content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            return (
+                                                <div className="bg-background border border-border p-2 rounded-md shadow-lg">
+                                                    <p className="font-semibold">{`${payload[0].payload.name}`}</p>
+                                                    <p className="text-sm">{`P/L: $${payload[0].value}`}</p>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
                                     }}
                                 />
-                                <Bar dataKey="pnl" radius={[0, 4, 4, 0]}>
-                                     {analyticsData.pnlByPairData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.pnl > 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))'} />
-                                     ))}
-                                     <LabelList 
-                                        dataKey="pnl" 
-                                        position="right" 
-                                        offset={8}
-                                        className="fill-foreground font-medium"
-                                        formatter={(value:number) => `$${value.toFixed(0)}`}
-                                    />
-                                </Bar>
-                            </BarChart>
+                            </RadialBarChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
