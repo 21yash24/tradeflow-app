@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, CheckCircle2 } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -64,22 +64,39 @@ const checklistItems = [
 
 function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
-    const allChecked = Object.values(checkedItems).length === checklistItems.length && Object.values(checkedItems).every(Boolean);
     
-    const handleCheckboxChange = (id: string) => {
-        setCheckedItems(prev => ({ ...prev, [id]: !prev[id] }));
+    const checkedCount = Object.values(checkedItems).filter(Boolean).length;
+
+    const getGrade = () => {
+        if (checkedCount >= 5) return { grade: 'A+', color: 'text-green-400' };
+        if (checkedCount === 4) return { grade: 'B', color: 'text-blue-400' };
+        if (checkedCount === 3) return { grade: 'C', color: 'text-yellow-400' };
+        return { grade: 'D', color: 'text-red-400' };
+    }
+
+    const { grade, color } = getGrade();
+    
+    const handleCheckboxChange = (id: string, checked: boolean) => {
+        setCheckedItems(prev => ({ ...prev, [id]: checked }));
     }
 
     return (
         <div className="space-y-4">
-            <h3 className="text-lg font-medium">Pre-Trade Checklist</h3>
+            <div className="flex justify-between items-center mb-4">
+                 <h3 className="text-lg font-medium">Pre-Trade Checklist</h3>
+                 <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Setup Grade</p>
+                    <p className={cn("text-2xl font-bold", color)}>{grade}</p>
+                 </div>
+            </div>
+            
             {checklistItems.map((item, index) => (
                 <div key={item.id}>
                     <div className="flex items-center space-x-3">
                         <Checkbox 
                             id={item.id} 
                             checked={checkedItems[item.id] || false}
-                            onCheckedChange={() => handleCheckboxChange(item.id)}
+                            onCheckedChange={(checked) => handleCheckboxChange(item.id, !!checked)}
                         />
                         <Label htmlFor={item.id} className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             {item.label}
@@ -89,7 +106,7 @@ function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
                 </div>
             ))}
             <div className="mt-6 flex justify-end">
-                <Button onClick={onContinue} disabled={!allChecked}>
+                <Button onClick={onContinue}>
                     Continue
                 </Button>
             </div>
