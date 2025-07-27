@@ -114,10 +114,9 @@ const ProfileHeaderSkeleton = () => (
 )
 
 
-export default function UserProfilePage({ params }: { params: { userId: string } }) {
+export default function UserProfilePage({ params: { userId } }: { params: { userId: string } }) {
   const [currentUser] = useAuthState(auth);
   const { toast } = useToast();
-  const { userId } = params;
 
   const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
