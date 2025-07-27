@@ -205,7 +205,7 @@ export default function AnalyticsPage() {
                                         borderColor: "hsl(var(--border))"
                                     }}
                                 />
-                                <Pie data={pnlByPairData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} fill="hsl(var(--primary))" label={(entry) => entry.name}>
+                                <Pie data={pnlByPairData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} fill="hsl(var(--accent))" label={(entry) => entry.name}>
                                 </Pie>
                             </PieChart>
                         </ResponsiveContainer>

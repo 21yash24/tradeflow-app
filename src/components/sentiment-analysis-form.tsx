@@ -72,19 +72,19 @@ export function SentimentAnalysisForm() {
         return {
           badge: "bg-green-500/10 text-green-400 border-green-500/20",
           icon: <TrendingUp className="h-6 w-6 text-green-400" />,
-          progressStyle: { "--primary": "hsl(142 71% 45%)" } as React.CSSProperties,
+          progress: "bg-green-400",
         };
       case "negative":
         return {
           badge: "bg-red-500/10 text-red-400 border-red-500/20",
           icon: <TrendingDown className="h-6 w-6 text-red-400" />,
-          progressStyle: { "--primary": "hsl(0 84% 60%)" } as React.CSSProperties,
+          progress: "bg-red-400",
         };
       default:
         return {
           badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",
           icon: <Minus className="h-6 w-6 text-gray-400" />,
-          progressStyle: { "--primary": "hsl(215 20% 65%)" } as React.CSSProperties,
+          progress: "bg-gray-400",
         };
     }
   };
@@ -179,7 +179,7 @@ export function SentimentAnalysisForm() {
                     {result.sentimentScore.toFixed(2)}
                   </span>
                 </div>
-                <Progress value={scorePercentage} style={sentimentColorScheme.progressStyle} />
+                <Progress value={scorePercentage} className={sentimentColorScheme.progress} />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Very Negative</span>
                   <span>Neutral</span>
