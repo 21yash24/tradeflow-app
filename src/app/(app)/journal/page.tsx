@@ -3,8 +3,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Image as ImageIcon } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PlusCircle, Image as ImageIcon, FileText } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { AddTradeFlow, type Trade } from "@/components/add-trade-form";
 import Image from "next/image";
+import { Separator } from "@/components/ui/separator";
 
 const initialTrades: Trade[] = [
   {
@@ -34,7 +35,7 @@ const initialTrades: Trade[] = [
     type: "buy",
     pnl: 150.75,
     setup: "Breakout",
-    notes: "Followed plan perfectly.",
+    notes: "Followed plan perfectly. Entry was at the break of the consolidation zone after the London open. There was clear momentum, and the price hit TP1 within 30 minutes. Moved SL to break-even and let the rest run.",
     confidence: 80,
     mentalState: "Focused and disciplined.",
     screenshot: "https://placehold.co/1200x800.png"
@@ -47,7 +48,7 @@ const initialTrades: Trade[] = [
     type: "sell",
     pnl: -75.2,
     setup: "Reversal",
-    notes: "Exited too early.",
+    notes: "Exited too early. The initial move went against me, and I panicked, closing the position manually before it hit my SL. The trade eventually would have been a small winner. Need to trust my analysis and stop-loss placement.",
     confidence: 60,
     mentalState: "A bit anxious due to volatility."
   },
@@ -59,17 +60,24 @@ const initialTrades: Trade[] = [
     type: "buy",
     pnl: 230.0,
     setup: "Continuation",
-    notes: "Good risk management.",
+    notes: "Good risk management. Waited for a pullback to the 50 EMA on the 1-hour chart, which aligned with a key support level. Entry was confirmed by a bullish engulfing candle. Excellent execution.",
     confidence: 90,
     mentalState: "Confident and in the zone.",
     screenshot: "https://placehold.co/1200x800.png"
   },
 ];
 
+const accountIdToName: Record<string, string> = {
+    "acc-1": "Primary Account ($10k)",
+    "acc-2": "Prop Firm Challenge ($100k)",
+    "acc-3": "Swing Account ($25k)"
+};
+
 export default function JournalPage() {
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
   const [isAddTradeDialogOpen, setAddTradeDialogOpen] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [viewingTrade, setViewingTrade] = useState<Trade | null>(null);
 
   const handleAddTrade = (newTrade: Omit<Trade, 'id'>) => {
     console.log("New trade added:", newTrade);
@@ -159,7 +167,7 @@ export default function JournalPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" onClick={() => setViewingTrade(trade)}>
                       View Details
                     </Button>
                   </TableCell>
@@ -183,6 +191,66 @@ export default function JournalPage() {
         </DialogContent>
        </Dialog>
 
+       <Dialog open={!!viewingTrade} onOpenChange={(isOpen) => !isOpen && setViewingTrade(null)}>
+        <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+                <DialogTitle>Trade Details</DialogTitle>
+                <DialogDescription>
+                    A complete overview of your trade on {viewingTrade?.pair} from {viewingTrade?.date}.
+                </DialogDescription>
+            </DialogHeader>
+            {viewingTrade && (
+                 <div className="mt-4 space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div className="space-y-1">
+                            <p className="text-muted-foreground">Account</p>
+                            <p className="font-medium">{accountIdToName[viewingTrade.accountId] || 'N/A'}</p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-muted-foreground">Setup</p>
+                            <p className="font-medium">{viewingTrade.setup}</p>
+                        </div>
+                         <div className="space-y-1">
+                            <p className="text-muted-foreground">Type</p>
+                            <p className="font-medium capitalize">{viewingTrade.type}</p>
+                        </div>
+                         <div className="space-y-1">
+                            <p className="text-muted-foreground">P/L</p>
+                            <p className={`font-medium ${viewingTrade.pnl > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                ${viewingTrade.pnl.toFixed(2)}
+                            </p>
+                        </div>
+                         <div className="space-y-1">
+                            <p className="text-muted-foreground">Confidence</p>
+                            <p className="font-medium">{viewingTrade.confidence}%</p>
+                        </div>
+                         <div className="space-y-1">
+                            <p className="text-muted-foreground">Mental State</p>
+                            <p className="font-medium">{viewingTrade.mentalState}</p>
+                        </div>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div className="space-y-2">
+                         <h4 className="font-semibold flex items-center gap-2"><FileText size={16} /> Notes</h4>
+                         <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md border">
+                            {viewingTrade.notes || "No notes were added for this trade."}
+                         </p>
+                    </div>
+
+                    {viewingTrade.screenshot && (
+                        <div className="space-y-2">
+                             <h4 className="font-semibold flex items-center gap-2"><ImageIcon size={16} /> Screenshot</h4>
+                             <div className="relative w-full h-64 rounded-md border overflow-hidden cursor-pointer" onClick={() => { setViewingImage(viewingTrade.screenshot!); setViewingTrade(null);}}>
+                                <Image src={viewingTrade.screenshot} alt="Trade Screenshot" layout="fill" objectFit="cover" />
+                             </div>
+                        </div>
+                    )}
+                 </div>
+            )}
+        </DialogContent>
+       </Dialog>
     </div>
   );
 }
