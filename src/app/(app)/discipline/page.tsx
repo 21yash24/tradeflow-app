@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { ChecklistItem, UserProfile } from '@/services/user-service';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 type ChecklistState = Record<string, boolean>;
 
@@ -121,11 +122,18 @@ const DisciplineTrackerPage = () => {
         setIsLoadingHistory(true);
         const q = query(
             collection(db, "discipline"),
-            where("userId", "==", user.uid),
-            orderBy("date", "desc")
+            where("userId", "==", user.uid)
         );
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const historyData = snapshot.docs.map(doc => doc.data() as DisciplineData);
+            const historyData = snapshot.docs
+                .map(doc => doc.data() as DisciplineData)
+                .sort((a, b) => {
+                    if (a.date && b.date) {
+                        // Sort descending (newest first)
+                        return new Date(b.date).getTime() - new Date(a.date).getTime();
+                    }
+                    return 0;
+                });
             setHistory(historyData);
             setIsLoadingHistory(false);
         });
@@ -348,5 +356,3 @@ const DisciplineTrackerPage = () => {
 }
 
 export default DisciplineTrackerPage;
-
-    
