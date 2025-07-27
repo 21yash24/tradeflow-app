@@ -253,7 +253,7 @@ const DisciplineTrackerPage = () => {
             <div className="flex justify-end gap-2">
                 {!isCompletedForToday && (
                     <>
-                        <Button variant="outline" onClick={handleSaveChanges}>Save Progress</Button>
+                        <Button variant="outline" onClick={handleSaveChanges}>Save Changes</Button>
                         <Button onClick={handleCompleteDay} disabled={!allChecked}>
                             <CheckCircle2 className="mr-2 h-4 w-4" />
                             Complete Day
