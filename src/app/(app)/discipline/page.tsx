@@ -104,7 +104,7 @@ const DisciplineTrackerPage = () => {
             if (unsubDiscipline) unsubDiscipline();
         };
 
-    }, [user, streakRef, docRef]);
+    }, [user, todayStr]);
 
     const handleChecklistChange = (id: string, checked: boolean) => {
         setData(prev => ({
