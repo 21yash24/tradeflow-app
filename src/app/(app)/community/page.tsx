@@ -45,7 +45,7 @@ const CommunityPost = ({ post }: { post: Post }) => {
             toast({ title: "Success", description: `You are now following ${post.authorName}.` });
         } catch (error) {
             console.error("Error following user:", error);
-            toast({ title: "Error", description: "Could not follow user.", variant: "destructive" });
+            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
         }
     };
 
