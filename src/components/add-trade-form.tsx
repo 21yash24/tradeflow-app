@@ -27,6 +27,7 @@ import { CalendarIcon } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { Slider } from "./ui/slider";
 
 const formSchema = z.object({
   pair: z.string().min(1, "Currency pair is required."),
@@ -35,8 +36,11 @@ const formSchema = z.object({
   pnl: z.coerce.number(),
   setup: z.string().min(1, "Trading setup is required."),
   notes: z.string().optional(),
+  confidence: z.number().min(0).max(100).default(50),
+  mentalState: z.string().optional(),
 });
 
+// We infer the type from the schema and add the id
 export type Trade = z.infer<typeof formSchema> & { id: string };
 
 type AddTradeFormProps = {
@@ -52,6 +56,8 @@ export function AddTradeForm({ onSubmit }: AddTradeFormProps) {
       pnl: 0,
       setup: "",
       notes: "",
+      confidence: 50,
+      mentalState: ""
     },
   });
 
@@ -162,6 +168,40 @@ export function AddTradeForm({ onSubmit }: AddTradeFormProps) {
               <FormLabel>Setup</FormLabel>
               <FormControl>
                 <Input placeholder="e.g., Breakout, Reversal" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
+          name="confidence"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Confidence ({field.value}%)</FormLabel>
+              <FormControl>
+                <Slider
+                  defaultValue={[50]}
+                  max={100}
+                  step={1}
+                  onValueChange={(value) => field.onChange(value[0])}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="mentalState"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Feelings / Mental State</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="How were you feeling? (e.g., Anxious, confident, tired...)"
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

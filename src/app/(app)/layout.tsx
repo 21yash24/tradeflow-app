@@ -22,7 +22,7 @@ import {
   Settings,
   Bell,
   Search,
-  Bot,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -50,19 +50,7 @@ export default function AppLayout({
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip="Sentiment Analysis"
-                isActive={isActive('/sentiment-analysis')}
-              >
-                <Link href="/sentiment-analysis">
-                  <Bot />
-                  <span>Sentiment Analysis</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
+             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="Journal" isActive={isActive('/journal')}>
                 <Link href="/journal">
                   <BookOpenCheck />
@@ -75,6 +63,14 @@ export default function AppLayout({
                 <Link href="/analytics">
                   <BarChart3 />
                   <span>Analytics</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+             <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Community" isActive={isActive('/community')}>
+                <Link href="/community">
+                  <Users />
+                  <span>Community</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

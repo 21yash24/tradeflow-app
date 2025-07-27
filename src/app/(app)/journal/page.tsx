@@ -33,6 +33,8 @@ const initialTrades: Trade[] = [
     pnl: 150.75,
     setup: "Breakout",
     notes: "Followed plan perfectly.",
+    confidence: 80,
+    mentalState: "Focused and disciplined."
   },
   {
     id: "2",
@@ -42,6 +44,8 @@ const initialTrades: Trade[] = [
     pnl: -75.2,
     setup: "Reversal",
     notes: "Exited too early.",
+    confidence: 60,
+    mentalState: "A bit anxious due to volatility."
   },
   {
     id: "3",
@@ -51,6 +55,8 @@ const initialTrades: Trade[] = [
     pnl: 230.0,
     setup: "Continuation",
     notes: "Good risk management.",
+    confidence: 90,
+    mentalState: "Confident and in the zone."
   },
 ];
 
