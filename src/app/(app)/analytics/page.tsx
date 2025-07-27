@@ -267,7 +267,7 @@ export default function AnalyticsPage() {
                 <CardContent className="p-0">
                     <div className="grid grid-cols-7 text-center text-xs text-muted-foreground font-semibold border-b">
                         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                            <div key={day} className="py-3 border-r last:border-r-0">{day}</div>
+                            <div key={day} className="py-2 md:py-3 border-r last:border-r-0 text-xs md:text-sm">{day}</div>
                         ))}
                     </div>
                     <div className="grid grid-cols-7 grid-rows-6">
@@ -278,7 +278,7 @@ export default function AnalyticsPage() {
                            
                            return (
                                <div key={dayStr} className={cn(
-                                   "h-28 p-2 text-left border-r border-b",
+                                   "relative aspect-square p-1.5 text-left border-r border-b flex flex-col",
                                    !isCurrentMonth ? "bg-card/20 text-muted-foreground/50" : "bg-card/50",
                                    (index + 1) % 7 === 0 && "border-r-0",
                                    index >= 35 && "border-b-0",
@@ -286,18 +286,18 @@ export default function AnalyticsPage() {
                                    data && data.pnl > 0 && "bg-green-800/20",
                                    data && data.pnl <= 0 && "bg-red-800/20",
                                )}>
-                                   <div className={cn("text-sm", isCurrentMonth ? "font-medium" : "font-normal")}>
+                                   <div className={cn("text-xs sm:text-sm", isCurrentMonth ? "font-medium" : "font-normal")}>
                                        {format(day, 'd')}
                                    </div>
                                    {data && isCurrentMonth && (
-                                       <div className="mt-2">
+                                       <div className="mt-1 flex-grow flex flex-col justify-end">
                                            <p className={cn(
-                                               "text-base font-bold",
+                                               "text-sm md:text-base font-bold",
                                                data.pnl >= 0 ? "text-accent" : "text-red-400"
                                            )}>
-                                               {data.pnl < 0 ? '-' : ''}${Math.abs(data.pnl).toFixed(2)}
+                                               {data.pnl < 0 ? '-' : ''}${Math.abs(data.pnl).toFixed(0)}
                                            </p>
-                                           <p className="text-xs text-muted-foreground">{data.trades} trades</p>
+                                           <p className="text-xs text-muted-foreground hidden sm:block">{data.trades} trades</p>
                                        </div>
                                    )}
                                </div>
