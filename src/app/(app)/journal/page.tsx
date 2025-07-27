@@ -28,7 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { analyzeTrade, TradeAnalysis } from "@/ai/flows/trade-analyst-flow";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc, getDoc } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useToast } from "@/hooks/use-toast";
 
