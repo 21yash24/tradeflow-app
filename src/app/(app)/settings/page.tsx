@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 import { type UserProfile, updateUserProfile } from "@/services/user-service";
-import { Loader2 } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import { updateProfile } from "firebase/auth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function SettingsPage() {
     const { toast } = useToast();
@@ -21,6 +22,7 @@ export default function SettingsPage() {
     const [profile, setProfile] = useState<Partial<UserProfile>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (user) {
@@ -40,6 +42,17 @@ export default function SettingsPage() {
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { id, value } = e.target;
         setProfile(prev => ({ ...prev, [id]: value }));
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setProfile(prev => ({...prev, photoURL: reader.result as string}));
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -104,14 +117,30 @@ export default function SettingsPage() {
                     <CardTitle>Public Details</CardTitle>
                     <CardDescription>This information will be displayed on your profile.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
+                    <div className="space-y-2">
+                        <Label>Avatar</Label>
+                        <div className="flex items-center gap-4">
+                            <Avatar className="h-20 w-20">
+                                <AvatarImage src={profile.photoURL || `https://placehold.co/150x150.png`} data-ai-hint="profile avatar" />
+                                <AvatarFallback>{profile.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                            </Avatar>
+                            <Input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                            />
+                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                <Upload className="mr-2 h-4 w-4" />
+                                Upload Image
+                            </Button>
+                        </div>
+                    </div>
                     <div className="space-y-2">
                         <Label htmlFor="displayName">Display Name</Label>
                         <Input id="displayName" value={profile.displayName || ''} onChange={handleInputChange} />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="photoURL">Avatar URL</Label>
-                        <Input id="photoURL" type="url" placeholder="https://example.com/image.png" value={profile.photoURL || ''} onChange={handleInputChange} />
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="bio">Bio</Label>
