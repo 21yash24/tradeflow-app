@@ -127,7 +127,7 @@ export default function AnalyticsPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className={cn("text-2xl font-bold", totalPnl >= 0 ? 'text-green-400' : 'text-red-400')}>
+                        <div className={cn("text-2xl font-bold", totalPnl >= 0 ? 'text-accent' : 'text-red-400')}>
                             {totalPnl >= 0 ? '+' : '-'}${Math.abs(totalPnl).toFixed(2)}
                         </div>
                         <p className="text-xs text-muted-foreground">Total profit and loss</p>
@@ -160,7 +160,7 @@ export default function AnalyticsPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            <span className="text-green-400">${avgWin.toFixed(2)}</span> / <span className="text-red-400">${avgLoss.toFixed(2)}</span>
+                            <span className="text-accent">${avgWin.toFixed(2)}</span> / <span className="text-red-400">${avgLoss.toFixed(2)}</span>
                         </div>
                          <p className="text-xs text-muted-foreground">Average result per trade</p>
                     </CardContent>
@@ -260,7 +260,7 @@ export default function AnalyticsPage() {
                                        <div className="mt-2">
                                            <p className={cn(
                                                "text-base font-bold",
-                                               data.pnl >= 0 ? "text-green-400" : "text-red-400"
+                                               data.pnl >= 0 ? "text-accent" : "text-red-400"
                                            )}>
                                                {data.pnl < 0 ? '-' : ''}${Math.abs(data.pnl).toFixed(2)}
                                            </p>
