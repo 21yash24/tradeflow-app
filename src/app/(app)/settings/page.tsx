@@ -44,7 +44,7 @@ export default function SettingsPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user) return;
+        if (!user || !auth.currentUser) return;
         
         setIsSaving(true);
         try {
@@ -58,7 +58,7 @@ export default function SettingsPage() {
 
             // Also update the auth profile if displayName or photoURL changed
             if (profile.displayName !== user.displayName || profile.photoURL !== user.photoURL) {
-                 await updateProfile(auth.currentUser!, {
+                 await updateProfile(auth.currentUser, {
                     displayName: profile.displayName,
                     photoURL: profile.photoURL
                  });
@@ -130,5 +130,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    
