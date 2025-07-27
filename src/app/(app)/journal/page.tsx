@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2 } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -27,47 +27,9 @@ import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { analyzeTrade, TradeAnalysis } from "@/ai/flows/trade-analyst-flow";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
-const initialTrades: Trade[] = [
-  {
-    id: "1",
-    accountId: "acc-1",
-    pair: "EUR/USD",
-    date: "2024-05-20",
-    type: "buy",
-    pnl: 150.75,
-    setup: "Breakout",
-    notes: "Followed plan perfectly. Entry was at the break of the consolidation zone after the London open. There was clear momentum, and the price hit TP1 within 30 minutes. Moved SL to break-even and let the rest run.",
-    confidence: 80,
-    mentalState: "Focused and disciplined.",
-    screenshot: "https://placehold.co/1200x800.png"
-  },
-  {
-    id: "2",
-    accountId: "acc-1",
-    pair: "GBP/JPY",
-    date: "2024-05-19",
-    type: "sell",
-    pnl: -75.2,
-    setup: "Reversal",
-    notes: "Exited too early. The initial move went against me, and I panicked, closing the position manually before it hit my SL. The trade eventually would have been a small winner. Need to trust my analysis and stop-loss placement.",
-    confidence: 60,
-    mentalState: "A bit anxious due to volatility."
-  },
-  {
-    id: "3",
-    accountId: "acc-2",
-    pair: "AUD/CAD",
-    date: "2024-05-18",
-    type: "buy",
-    pnl: 230.0,
-    setup: "Continuation",
-    notes: "Good risk management. Waited for a pullback to the 50 EMA on the 1-hour chart, which aligned with a key support level. Entry was confirmed by a bullish engulfing candle. Excellent execution.",
-    confidence: 90,
-    mentalState: "Confident and in the zone.",
-    screenshot: "https://placehold.co/1200x800.png"
-  },
-];
+import { db, auth } from "@/lib/firebase";
+import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc } from "firebase/firestore";
+import { useAuthState } from "react-firebase-hooks/auth";
 
 const accountIdToName: Record<string, string> = {
     "acc-1": "Primary Account ($10k)",
@@ -118,21 +80,45 @@ function TradeAnalysisResult({ analysis }: { analysis: TradeAnalysis }) {
 }
 
 export default function JournalPage() {
-  const [trades, setTrades] = useState<Trade[]>(initialTrades);
+  const [user] = useAuthState(auth);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [isAddTradeDialogOpen, setAddTradeDialogOpen] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [viewingTrade, setViewingTrade] = useState<Trade | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<TradeAnalysis | null>(null);
+  const [isLoadingTrades, setIsLoadingTrades] = useState(true);
 
-  const handleAddTrade = (newTrade: Omit<Trade, 'id'>) => {
-    console.log("New trade added:", newTrade);
-    setTrades(prevTrades => [
-        { ...newTrade, id: (prevTrades.length + 1).toString() },
-        ...prevTrades
-    ]);
+  useEffect(() => {
+    if (user) {
+      const q = query(
+        collection(db, "trades"),
+        where("userId", "==", user.uid),
+        orderBy("date", "desc")
+      );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const tradesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Trade[];
+        setTrades(tradesData);
+        setIsLoadingTrades(false);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  const handleAddTrade = async (newTrade: Omit<Trade, 'id' | 'userId'>) => {
+    if (user) {
+      await addDoc(collection(db, "trades"), {
+        ...newTrade,
+        userId: user.uid,
+      });
+    }
     setAddTradeDialogOpen(false);
   };
+  
+  const handleDeleteTrade = async (tradeId: string) => {
+    await deleteDoc(doc(db, "trades", tradeId));
+    handleCloseDetails();
+  }
 
   const handleAnalyzeTrade = async () => {
     if (!viewingTrade) return;
@@ -142,7 +128,7 @@ export default function JournalPage() {
     try {
         const result = await analyzeTrade({
             pair: viewingTrade.pair,
-            type: viewingTrade.type,
+            type: viewingTrade.type as 'buy' | 'sell',
             pnl: viewingTrade.pnl,
             notes: viewingTrade.notes || "",
             mentalState: viewingTrade.mentalState || "",
@@ -150,7 +136,6 @@ export default function JournalPage() {
         setAnalysisResult(result);
     } catch (error) {
         console.error("Error analyzing trade:", error);
-        // You might want to show a toast notification here
     } finally {
         setIsAnalyzing(false);
     }
@@ -209,7 +194,17 @@ export default function JournalPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {trades.map((trade) => (
+              {isLoadingTrades ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-12">Loading trades...</TableCell>
+                </TableRow>
+              ) : trades.length === 0 ? (
+                <TableRow>
+                   <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                       No trades logged yet. Click "Add Trade" to start.
+                   </TableCell>
+                </TableRow>
+              ) : trades.map((trade) => (
                 <TableRow key={trade.id}>
                   <TableCell className="font-medium">{trade.pair}</TableCell>
                   <TableCell>{trade.date}</TableCell>
@@ -324,7 +319,7 @@ export default function JournalPage() {
                     
                     <Separator />
 
-                    <div>
+                    <div className="space-y-2">
                         {analysisResult && <TradeAnalysisResult analysis={analysisResult} />}
                         
                         {isAnalyzing && (
@@ -335,10 +330,15 @@ export default function JournalPage() {
                         )}
 
                         {!analysisResult && !isAnalyzing && (
-                            <Button onClick={handleAnalyzeTrade} className="w-full">
-                                <Wand2 className="mr-2 h-4 w-4" />
-                                Analyze with AI
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button onClick={handleAnalyzeTrade} className="w-full">
+                                    <Wand2 className="mr-2 h-4 w-4" />
+                                    Analyze with AI
+                                </Button>
+                                 <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade.id)}>
+                                     <Trash2 className="h-4 w-4" />
+                                 </Button>
+                            </div>
                         )}
                     </div>
 

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   BookOpenCheck,
@@ -33,6 +33,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
+import { useEffect } from "react";
 
 const navItems = [
     { href: "/journal", icon: BookOpenCheck, label: "Journal" },
@@ -44,23 +48,30 @@ const navItems = [
 
 function UserProfileDropdown() {
     const { setTheme } = useTheme();
+    const [user] = useAuthState(auth);
+    const router = useRouter();
+
+    const handleLogout = async () => {
+        await signOut(auth);
+        router.push('/login');
+    };
 
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                      <Avatar className="h-10 w-10">
-                        <AvatarImage src="https://placehold.co/100x100.png" alt="@tradepilot" data-ai-hint="profile avatar" />
-                        <AvatarFallback>TP</AvatarFallback>
+                        <AvatarImage src={user?.photoURL || "https://placehold.co/100x100.png"} alt={user?.displayName || "User"} data-ai-hint="profile avatar" />
+                        <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">TradePilot</p>
+                        <p className="text-sm font-medium leading-none">{user?.displayName || "User"}</p>
                         <p className="text-xs leading-none text-muted-foreground">
-                            pilot@tradeflow.app
+                            {user?.email}
                         </p>
                     </div>
                 </DropdownMenuLabel>
@@ -87,7 +98,7 @@ function UserProfileDropdown() {
                     <span>Dark Mode</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                 <DropdownMenuItem>
+                 <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                 </DropdownMenuItem>
@@ -183,6 +194,23 @@ export default function AppLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const [user, loading] = useAuthState(auth);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  if(loading || !user) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+          <TradeFlowLogo className="size-12 text-primary animate-pulse" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
         <DesktopSidebar />
@@ -202,3 +230,4 @@ export default function AppLayout({
     </div>
   );
 }
+

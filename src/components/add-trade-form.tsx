@@ -49,10 +49,10 @@ const formSchema = z.object({
 });
 
 // We infer the type from the schema and add the id
-export type Trade = z.infer<typeof formSchema> & { id: string };
+export type Trade = z.infer<typeof formSchema> & { id: string; userId: string; };
 
 type AddTradeFormProps = {
-  onSubmit: (values: Omit<Trade, 'id'>) => void;
+  onSubmit: (values: Omit<Trade, 'id' | 'userId'>) => void;
   onBack: () => void;
 };
 
@@ -373,7 +373,7 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
   );
 }
 
-export function AddTradeFlow({ onSubmit }: { onSubmit: (values: Omit<Trade, 'id'>) => void }) {
+export function AddTradeFlow({ onSubmit }: { onSubmit: (values: Omit<Trade, 'id' | 'userId'>) => void }) {
     const [step, setStep] = useState(1);
 
     if (step === 1) {
