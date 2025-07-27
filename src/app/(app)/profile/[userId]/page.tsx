@@ -6,10 +6,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Grid3x3, Bookmark, MessageCircle, Repeat, Heart, Edit, Loader2 } from 'lucide-react';
+import { Grid3x3, Bookmark, MessageCircle, Repeat, Heart, Edit, Loader2, MoreHorizontal, Trash2 } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { followUser, unfollowUser, type UserProfile } from '@/services/user-service';
@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { updateProfile } from 'firebase/auth';
-import { updateDoc } from 'firebase/firestore';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 type Post = {
@@ -42,6 +42,50 @@ type Post = {
     replies: number;
     retweets: number;
 };
+
+const EditPostDialog = ({ post, isOpen, onOpenChange, onPostUpdated }: { post: Post; isOpen: boolean; onOpenChange: (open: boolean) => void; onPostUpdated: () => void; }) => {
+    const [content, setContent] = useState(post.content);
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const postRef = doc(db, 'posts', post.id);
+            await updateDoc(postRef, { content });
+            toast({ title: "Post Updated", description: "Your post has been successfully updated." });
+            onPostUpdated();
+            onOpenChange(false);
+        } catch (error) {
+            console.error("Error updating post:", error);
+            toast({ title: "Error", description: "Failed to update your post.", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Post</DialogTitle>
+                </DialogHeader>
+                <Textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    className="min-h-[120px] mt-4"
+                    placeholder="Edit your post..."
+                />
+                <div className="flex justify-end mt-4">
+                    <Button onClick={handleSave} disabled={isSaving || content.trim() === ''}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Save Changes'}
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 
 const EditProfileDialog = ({ userProfile }: { userProfile: UserProfile }) => {
     const { toast } = useToast();
@@ -162,11 +206,30 @@ const UserStat = ({ value, label }: { value: string | number; label: string }) =
   </div>
 );
 
-const CommunityPost = ({ post }: { post: Post }) => {
+const CommunityPost = ({ post, onPostDeleted, onPostUpdated }: { post: Post, onPostDeleted: () => void; onPostUpdated: () => void; }) => {
     const postDate = post.createdAt?.toDate();
     const timeAgo = postDate ? formatDistanceToNow(postDate, { addSuffix: true }) : 'just now';
+    const { toast } = useToast();
+    const [user] = useAuthState(auth);
+    const isAuthor = user?.uid === post.authorId;
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+    const handleDelete = async () => {
+        if (window.confirm("Are you sure you want to delete this post?")) {
+            try {
+                await deleteDoc(doc(db, 'posts', post.id));
+                toast({ title: "Post Deleted", description: "Your post has been removed." });
+                onPostDeleted();
+            } catch (error) {
+                console.error("Error deleting post:", error);
+                toast({ title: "Error", description: "Failed to delete the post.", variant: "destructive" });
+            }
+        }
+    };
+
 
     return (
+        <>
         <Card className="mb-4 hover:shadow-lg transition-shadow duration-300">
             <CardContent className="p-4">
                 <div className="flex items-start gap-4">
@@ -177,10 +240,29 @@ const CommunityPost = ({ post }: { post: Post }) => {
                         </Avatar>
                     </Link>
                     <div className="w-full">
-                        <div className="flex items-center gap-2">
-                             <Link href={`/profile/${post.authorId}`} className="font-semibold hover:underline">{post.authorName}</Link>
-                            <span className="text-sm text-muted-foreground">@{post.authorHandle}</span>
-                            <span className="text-sm text-muted-foreground">· {timeAgo}</span>
+                        <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                                <Link href={`/profile/${post.authorId}`} className="font-semibold hover:underline">{post.authorName}</Link>
+                                <span className="text-sm text-muted-foreground">@{post.authorHandle}</span>
+                                <span className="text-sm text-muted-foreground">· {timeAgo}</span>
+                            </div>
+                            {isAuthor && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7">
+                                            <MoreHorizontal className="h-5 w-5" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
+                                            <Edit className="mr-2 h-4 w-4"/> Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                                            <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
                         </div>
                         <p className="mt-2 text-foreground/90 whitespace-pre-wrap">{post.content}</p>
                         <div className="mt-4 flex justify-between items-center text-muted-foreground max-w-xs">
@@ -201,6 +283,8 @@ const CommunityPost = ({ post }: { post: Post }) => {
                 </div>
             </CardContent>
         </Card>
+        {isAuthor && <EditPostDialog post={post} isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} onPostUpdated={onPostUpdated} />}
+        </>
     );
 };
 
@@ -319,6 +403,10 @@ export default function UserProfilePage() {
         toast({ title: "Unfollowed", description: `You are no longer following ${profileUser?.displayName}.` });
     };
 
+    const onPostAction = () => {
+        // Dummy function to trigger re-render if needed, though onSnapshot should handle it.
+    };
+
     const isCurrentUserProfile = currentUser?.uid === userId;
 
     return (
@@ -378,7 +466,7 @@ export default function UserProfilePage() {
                     </div>
                 ) : (
                     userPosts.map(post => (
-                        <CommunityPost key={post.id} post={post} />
+                        <CommunityPost key={post.id} post={post} onPostDeleted={onPostAction} onPostUpdated={onPostAction} />
                     ))
                 )}
             </div>

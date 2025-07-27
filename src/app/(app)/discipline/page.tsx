@@ -7,26 +7,28 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from '@/components/ui/textarea';
-import { Flame, CheckCircle2, TrendingUp, Loader2, History } from 'lucide-react';
+import { Flame, CheckCircle2, TrendingUp, Loader2, History, Trash2 } from 'lucide-react';
 import { format, isToday, isYesterday, differenceInCalendarDays, parseISO } from 'date-fns';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { ChecklistItem, UserProfile } from '@/services/user-service';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type ChecklistState = Record<string, boolean>;
 
 type DisciplineData = {
+    id: string; // Document ID: `${user.uid}_${date}`
     lastCompletedDate?: string;
     streak: number;
     checklist: ChecklistState;
     notes: string;
-    userId?: string; // Add userId for querying
-    date?: string; // Add date for sorting
+    userId?: string; 
+    date?: string; 
 }
 
 const DisciplineTrackerPage = () => {
@@ -34,7 +36,7 @@ const DisciplineTrackerPage = () => {
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(true);
     const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
-    const [data, setData] = useState<DisciplineData>({
+    const [data, setData] = useState<Partial<DisciplineData>>({
         streak: 0,
         checklist: {},
         notes: ''
@@ -126,7 +128,7 @@ const DisciplineTrackerPage = () => {
         );
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const historyData = snapshot.docs
-                .map(doc => doc.data() as DisciplineData)
+                .map(doc => ({ ...doc.data(), id: doc.id }) as DisciplineData)
                 .sort((a, b) => {
                     if (a.date && b.date) {
                         // Sort descending (newest first)
@@ -207,8 +209,20 @@ const DisciplineTrackerPage = () => {
         }
     };
     
+    const handleDeleteHistory = async (docId: string) => {
+        if (window.confirm("Are you sure you want to delete this historical entry? This cannot be undone.")) {
+            try {
+                await deleteDoc(doc(db, 'discipline', docId));
+                toast({ title: 'Entry Deleted', description: 'The historical log has been removed.' });
+            } catch (error) {
+                console.error("Error deleting history entry:", error);
+                toast({ title: 'Error', description: 'Failed to delete the entry.', variant: 'destructive' });
+            }
+        }
+    }
+
     const isCompletedForToday = data.lastCompletedDate === todayStr;
-    const allChecked = checklistItems.length > 0 && checklistItems.every(item => data.checklist[item.id]);
+    const allChecked = checklistItems.length > 0 && checklistItems.every(item => data.checklist?.[item.id]);
 
     if(isLoading) {
          return (
@@ -239,7 +253,7 @@ const DisciplineTrackerPage = () => {
                  <Card className="flex flex-col items-center justify-center text-center p-6">
                     <TrendingUp className="h-12 w-12 text-accent" />
                     <p className="text-5xl font-bold mt-2">
-                        {Object.values(data.checklist).filter(Boolean).length}/{checklistItems.length}
+                        {Object.values(data.checklist || {}).filter(Boolean).length}/{checklistItems.length}
                     </p>
                     <p className="text-muted-foreground">Tasks Completed Today</p>
                 </Card>
@@ -255,13 +269,13 @@ const DisciplineTrackerPage = () => {
                         <div key={item.id} className="flex items-center space-x-3">
                             <Checkbox 
                                 id={item.id} 
-                                checked={data.checklist[item.id] || false}
+                                checked={data.checklist?.[item.id] || false}
                                 onCheckedChange={(checked) => handleChecklistChange(item.id, !!checked)}
                                 disabled={isCompletedForToday}
                             />
                             <Label 
                                 htmlFor={item.id} 
-                                className={cn("text-sm font-normal", (data.checklist[item.id] && !isCompletedForToday) && "line-through text-muted-foreground", isCompletedForToday && "text-muted-foreground")}
+                                className={cn("text-sm font-normal", (data.checklist?.[item.id] && !isCompletedForToday) && "line-through text-muted-foreground", isCompletedForToday && "text-muted-foreground")}
                             >
                                 {item.label}
                             </Label>
@@ -309,24 +323,26 @@ const DisciplineTrackerPage = () => {
                     <CardDescription>Review your performance from previous days.</CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <TooltipProvider>
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[120px]">Date</TableHead>
                                 <TableHead className="w-[150px]">Completion</TableHead>
                                 <TableHead>Notes</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoadingHistory ? (
                                 <TableRow>
-                                    <TableCell colSpan={3} className="text-center py-8">
+                                    <TableCell colSpan={4} className="text-center py-8">
                                         <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                                     </TableCell>
                                 </TableRow>
                             ) : history.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                                         No history found. Complete a day to start your log.
                                     </TableCell>
                                 </TableRow>
@@ -335,7 +351,7 @@ const DisciplineTrackerPage = () => {
                                     const completedCount = Object.values(log.checklist || {}).filter(Boolean).length;
                                     const totalCount = checklistItems.length;
                                     return (
-                                        <TableRow key={log.date}>
+                                        <TableRow key={log.id}>
                                             <TableCell className="font-medium">{log.date ? format(parseISO(log.date), 'MMM d, yyyy') : 'N/A'}</TableCell>
                                             <TableCell>
                                                 <Badge variant={completedCount === totalCount && totalCount > 0 ? "default" : "secondary"}>
@@ -343,12 +359,27 @@ const DisciplineTrackerPage = () => {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-muted-foreground text-sm">{log.notes || 'No notes.'}</TableCell>
+                                            <TableCell className="text-right">
+                                                {log.date !== todayStr && (
+                                                     <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" onClick={() => handleDeleteHistory(log.id)}>
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Delete Entry</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                )}
+                                            </TableCell>
                                         </TableRow>
                                     )
                                 })
                             )}
                         </TableBody>
                     </Table>
+                    </TooltipProvider>
                 </CardContent>
             </Card>
         </div>

@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, Pie, PieChart, RadialBar, RadialBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -20,9 +20,9 @@ import { backtestStrategy, type BacktestResult } from '@/ai/flows/backtester-flo
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, onSnapshot, query, where, addDoc, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, addDoc, serverTimestamp, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import type { Trade } from '@/components/add-trade-form';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
@@ -43,35 +43,53 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
     const [user] = useAuthState(auth);
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 
     const form = useHookForm<z.infer<typeof accountFormSchema>>({
         resolver: zodResolver(accountFormSchema),
         defaultValues: { name: "", balance: 10000 },
     });
 
-    const handleCreateAccount = async (values: z.infer<typeof accountFormSchema>) => {
+    useEffect(() => {
+        if(editingAccount) {
+            form.reset(editingAccount);
+        } else {
+            form.reset({ name: "", balance: 10000 });
+        }
+    }, [editingAccount, form]);
+    
+    const handleAccountSubmit = async (values: z.infer<typeof accountFormSchema>) => {
         if (!user) return;
         setIsSubmitting(true);
+        
         try {
-            await addDoc(collection(db, "accounts"), {
-                ...values,
-                userId: user.uid,
-                createdAt: serverTimestamp(),
-            });
-            toast({ title: "Account Created!", description: `Account "${values.name}" has been added.` });
-            form.reset();
+            if (editingAccount) {
+                // Update existing account
+                const accountRef = doc(db, "accounts", editingAccount.id);
+                await updateDoc(accountRef, values);
+                toast({ title: "Account Updated", description: `Account "${values.name}" has been updated.` });
+            } else {
+                // Create new account
+                 await addDoc(collection(db, "accounts"), {
+                    ...values,
+                    userId: user.uid,
+                    createdAt: serverTimestamp(),
+                });
+                toast({ title: "Account Created!", description: `Account "${values.name}" has been added.` });
+            }
+            form.reset({ name: "", balance: 10000 });
+            setEditingAccount(null);
             onAccountCreated();
         } catch (error) {
-            console.error("Error creating account:", error);
-            toast({ title: "Error", description: "Could not create account.", variant: "destructive" });
+            console.error("Error submitting account:", error);
+            toast({ title: "Error", description: `Could not save account.`, variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
     }
     
     const handleDeleteAccount = async (accountId: string) => {
-        // Basic confirmation, in a real app you might want a more robust dialog
-        if (window.confirm("Are you sure you want to delete this account? This action cannot be undone.")) {
+        if (window.confirm("Are you sure you want to delete this account? This will not delete its trades but they will be unassigned.")) {
             try {
                 await deleteDoc(doc(db, "accounts", accountId));
                 toast({ title: "Account Deleted", description: "The account has been removed." });
@@ -83,14 +101,14 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
     }
 
     return (
-        <Dialog>
+        <Dialog onOpenChange={(isOpen) => !isOpen && setEditingAccount(null)}>
             <DialogTrigger asChild>
                 <Button variant="outline"><Wallet className="mr-2 h-4 w-4"/> Manage Accounts</Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Manage Trading Accounts</DialogTitle>
-                    <DialogDescription>Create new accounts or delete existing ones.</DialogDescription>
+                    <DialogDescription>Create, edit, or delete your trading accounts.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                     <h3 className="font-semibold text-lg">Existing Accounts</h3>
@@ -101,18 +119,23 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
                                     <p className="font-medium">{acc.name}</p>
                                     <p className="text-sm text-muted-foreground">Balance: ${acc.balance.toLocaleString()}</p>
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={() => handleDeleteAccount(acc.id)}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                <div className="flex items-center">
+                                     <Button variant="ghost" size="icon" onClick={() => setEditingAccount(acc)}>
+                                        <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteAccount(acc.id)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
                             </div>
                         )) : (
                             <p className="text-sm text-muted-foreground text-center py-4">No accounts found. Create one below.</p>
                         )}
                     </div>
                     <Separator />
-                     <h3 className="font-semibold text-lg">Create New Account</h3>
+                     <h3 className="font-semibold text-lg">{editingAccount ? "Edit Account" : "Create New Account"}</h3>
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(handleCreateAccount)} className="space-y-4">
+                        <form onSubmit={form.handleSubmit(handleAccountSubmit)} className="space-y-4">
                              <FormField
                                 control={form.control}
                                 name="name"
@@ -139,12 +162,13 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
                                     </FormItem>
                                 )}
                             />
-                            <div className="flex justify-end">
+                            <DialogFooter>
+                                {editingAccount && <Button variant="ghost" onClick={() => setEditingAccount(null)}>Cancel</Button>}
                                 <Button type="submit" disabled={isSubmitting}>
-                                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlusCircle className="mr-2 h-4 w-4" />}
-                                    Create Account
+                                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : editingAccount ? <Edit className="mr-2 h-4 w-4"/> : <PlusCircle className="mr-2 h-4 w-4" />}
+                                    {editingAccount ? 'Save Changes' : 'Create Account'}
                                 </Button>
-                            </div>
+                            </DialogFooter>
                         </form>
                     </Form>
                 </div>

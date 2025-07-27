@@ -6,15 +6,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Repeat, Loader2, UserPlus, Search } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Loader2, UserPlus, Search, MoreHorizontal, Trash2, Edit } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, where, doc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, where, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { followUser, type UserProfile } from '@/services/user-service';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type Post = {
     id: string;
@@ -29,11 +31,57 @@ type Post = {
     retweets: number;
 };
 
-const CommunityPost = ({ post }: { post: Post }) => {
+const EditPostDialog = ({ post, isOpen, onOpenChange, onPostUpdated }: { post: Post; isOpen: boolean; onOpenChange: (open: boolean) => void; onPostUpdated: () => void; }) => {
+    const [content, setContent] = useState(post.content);
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const postRef = doc(db, 'posts', post.id);
+            await updateDoc(postRef, { content });
+            toast({ title: "Post Updated", description: "Your post has been successfully updated." });
+            onPostUpdated();
+            onOpenChange(false);
+        } catch (error) {
+            console.error("Error updating post:", error);
+            toast({ title: "Error", description: "Failed to update your post.", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Post</DialogTitle>
+                </DialogHeader>
+                <Textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    className="min-h-[120px] mt-4"
+                    placeholder="Edit your post..."
+                />
+                <div className="flex justify-end mt-4">
+                    <Button onClick={handleSave} disabled={isSaving || content.trim() === ''}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Save Changes'}
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+
+const CommunityPost = ({ post, onPostDeleted, onPostUpdated }: { post: Post; onPostDeleted: () => void; onPostUpdated: () => void; }) => {
     const [user] = useAuthState(auth);
     const { toast } = useToast();
     const postDate = post.createdAt?.toDate();
     const timeAgo = postDate ? formatDistanceToNow(postDate, { addSuffix: true }) : 'just now';
+    const isAuthor = user?.uid === post.authorId;
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     
     const handleFollow = async () => {
         if (!user) {
@@ -49,46 +97,83 @@ const CommunityPost = ({ post }: { post: Post }) => {
         }
     };
 
+    const handleDelete = async () => {
+        if (window.confirm("Are you sure you want to delete this post?")) {
+            try {
+                await deleteDoc(doc(db, 'posts', post.id));
+                toast({ title: "Post Deleted", description: "Your post has been removed." });
+                onPostDeleted();
+            } catch (error) {
+                console.error("Error deleting post:", error);
+                toast({ title: "Error", description: "Failed to delete the post.", variant: "destructive" });
+            }
+        }
+    };
+
     return (
-        <Card className="mb-4 hover:shadow-lg transition-shadow duration-300">
-            <CardContent className="p-4">
-                <div className="flex items-start gap-4">
-                    <Link href={`/profile/${post.authorId}`}>
-                        <Avatar>
-                            <AvatarImage src={post.authorAvatar || `https://placehold.co/100x100.png`} data-ai-hint="profile avatar" />
-                            <AvatarFallback>{post.authorName?.substring(0, 2) || 'U'}</AvatarFallback>
-                        </Avatar>
-                    </Link>
-                    <div className="w-full">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <Link href={`/profile/${post.authorId}`} className="font-semibold hover:underline">{post.authorName}</Link>
-                            <span className="text-sm text-muted-foreground">@{post.authorHandle}</span>
-                            <span className="text-sm text-muted-foreground">· {timeAgo}</span>
-                            {user && user.uid !== post.authorId && (
-                                <Button variant="outline" size="sm" className="ml-auto" onClick={handleFollow}>
-                                    <UserPlus className="mr-1 h-4 w-4" /> Follow
+         <>
+            <Card className="mb-4 hover:shadow-lg transition-shadow duration-300">
+                <CardContent className="p-4">
+                    <div className="flex items-start gap-4">
+                        <Link href={`/profile/${post.authorId}`}>
+                            <Avatar>
+                                <AvatarImage src={post.authorAvatar || `https://placehold.co/100x100.png`} data-ai-hint="profile avatar" />
+                                <AvatarFallback>{post.authorName?.substring(0, 2) || 'U'}</AvatarFallback>
+                            </Avatar>
+                        </Link>
+                        <div className="w-full">
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <Link href={`/profile/${post.authorId}`} className="font-semibold hover:underline">{post.authorName}</Link>
+                                    <span className="text-sm text-muted-foreground">@{post.authorHandle}</span>
+                                    <span className="text-sm text-muted-foreground">· {timeAgo}</span>
+                                </div>
+                                <div className="flex items-center">
+                                    {user && user.uid !== post.authorId && (
+                                        <Button variant="outline" size="sm" onClick={handleFollow}>
+                                            <UserPlus className="mr-1 h-4 w-4" /> Follow
+                                        </Button>
+                                    )}
+                                    {isAuthor && (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                    <MoreHorizontal className="h-5 w-5" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
+                                                    <Edit className="mr-2 h-4 w-4"/> Edit
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                                                    <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    )}
+                                </div>
+                            </div>
+                            <p className="mt-2 text-foreground/90 whitespace-pre-wrap">{post.content}</p>
+                            <div className="mt-4 flex justify-between items-center text-muted-foreground max-w-xs">
+                                <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-blue-500">
+                                <MessageCircle size={18} /> 
+                                <span>{post.replies}</span>
                                 </Button>
-                            )}
-                        </div>
-                        <p className="mt-2 text-foreground/90 whitespace-pre-wrap">{post.content}</p>
-                        <div className="mt-4 flex justify-between items-center text-muted-foreground max-w-xs">
-                            <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-blue-500">
-                               <MessageCircle size={18} /> 
-                               <span>{post.replies}</span>
-                            </Button>
-                            <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-green-500">
-                               <Repeat size={18} /> 
-                               <span>{post.retweets}</span>
-                            </Button>
-                            <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-red-500">
-                               <Heart size={18} /> 
-                               <span>{post.likes}</span>
-                            </Button>
+                                <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-green-500">
+                                <Repeat size={18} /> 
+                                <span>{post.retweets}</span>
+                                </Button>
+                                <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-red-500">
+                                <Heart size={18} /> 
+                                <span>{post.likes}</span>
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+            {isAuthor && <EditPostDialog post={post} isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} onPostUpdated={onPostUpdated} />}
+         </>
     );
 };
 
@@ -213,6 +298,11 @@ const CommunityPage = () => {
             setIsSubmitting(false);
         }
     };
+    
+    const onPostAction = () => {
+      // Dummy function to trigger re-render from child, since onSnapshot handles the state update
+    };
+
 
   return (
     <div className="space-y-6">
@@ -257,7 +347,7 @@ const CommunityPage = () => {
                 </div>
             ) : (
                 posts.map((post) => (
-                    <CommunityPost key={post.id} post={post} />
+                    <CommunityPost key={post.id} post={post} onPostDeleted={onPostAction} onPostUpdated={onPostAction} />
                 ))
             )}
         </div>
@@ -266,5 +356,3 @@ const CommunityPage = () => {
 };
 
 export default CommunityPage;
-
-    
