@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, Bot, BrainCircuit } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, Bot, BrainCircuit, Loader2 } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, getDay, isEqual, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -14,6 +14,11 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { backtestStrategy, type BacktestResult, type BacktestStrategyInput } from '@/ai/flows/backtester-flow';
+import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
 
 // Mock data simulating multiple trading accounts
 const tradingData: Record<string, { name: string; trades: any[] }> = {
@@ -298,29 +303,39 @@ const PerformanceDashboard = () => {
     )
 }
 
+const backtestFormSchema = z.object({
+  strategy: z.string().min(10, { message: 'Please describe your strategy in more detail.' }),
+  pair: z.string(),
+  timeframe: z.string(),
+  dateRange: z.string(),
+});
+
 const AiBacktester = () => {
-    // Placeholder state for backtest results
-    const [results, setResults] = useState<any>(null);
+    const [results, setResults] = useState<BacktestResult | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleRunBacktest = (e: React.FormEvent) => {
-        e.preventDefault();
+    const form = useForm<z.infer<typeof backtestFormSchema>>({
+        resolver: zodResolver(backtestFormSchema),
+        defaultValues: {
+            strategy: '',
+            pair: 'EUR/USD',
+            timeframe: '4H',
+            dateRange: '1Y',
+        },
+    });
+
+    const handleRunBacktest = async (values: z.infer<typeof backtestFormSchema>) => {
         setIsLoading(true);
-        // Mock API call
-        setTimeout(() => {
-            setResults({
-                netPnl: 4520.30,
-                winRate: 62.5,
-                profitFactor: 2.1,
-                totalTrades: 80,
-                equityCurve: [
-                    { name: '1', value: 10000 }, { name: '10', value: 10500 }, { name: '20', value: 10200 },
-                    { name: '30', value: 11200 }, { name: '40', value: 11800 }, { name: '50', value: 12500 },
-                    { name: '60', value: 13500 }, { name: '70', value: 14000 }, { name: '80', value: 14520.30 },
-                ]
-            });
+        setResults(null);
+        try {
+            const result = await backtestStrategy(values);
+            setResults(result);
+        } catch (error) {
+            console.error("Error running backtest:", error);
+            // Optionally, show a toast notification here
+        } finally {
             setIsLoading(false);
-        }, 2000);
+        }
     }
 
     return (
@@ -331,63 +346,104 @@ const AiBacktester = () => {
                     <CardDescription>Define a strategy in plain English and see how it would have performed.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleRunBacktest} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="strategy">Trading Strategy</Label>
-                            <Textarea id="strategy" placeholder="e.g., 'Buy when the 50 EMA crosses above the 200 EMA on the 4H chart. Sell when it crosses below.'" className="min-h-[100px]" />
-                        </div>
+                    <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleRunBacktest)} className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="strategy"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <Label htmlFor="strategy">Trading Strategy</Label>
+                                    <Textarea 
+                                        id="strategy" 
+                                        placeholder="e.g., 'Buy when the 50 EMA crosses above the 200 EMA on the 4H chart. Sell when it crosses below.'" 
+                                        className="min-h-[100px]" 
+                                        {...field}
+                                    />
+                                     {form.formState.errors.strategy && <p className="text-sm font-medium text-destructive">{form.formState.errors.strategy.message}</p>}
+                                </FormItem>
+                            )}
+                        />
+                       
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="pair">Currency Pair</Label>
-                                <Select defaultValue="EUR/USD">
-                                    <SelectTrigger id="pair">
-                                        <SelectValue placeholder="Select pair" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="EUR/USD">EUR/USD</SelectItem>
-                                        <SelectItem value="GBP/JPY">GBP/JPY</SelectItem>
-                                        <SelectItem value="XAU/USD">XAU/USD</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="timeframe">Timeframe</Label>
-                                <Select defaultValue="4H">
-                                    <SelectTrigger id="timeframe">
-                                        <SelectValue placeholder="Select timeframe" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="1H">1 Hour</SelectItem>
-                                        <SelectItem value="4H">4 Hours</SelectItem>
-                                        <SelectItem value="1D">Daily</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="period">Date Range</Label>
-                                 <Select defaultValue="1Y">
-                                    <SelectTrigger id="period">
-                                        <SelectValue placeholder="Select period" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="3M">Last 3 Months</SelectItem>
-                                        <SelectItem value="6M">Last 6 Months</SelectItem>
-                                        <SelectItem value="1Y">Last Year</SelectItem>
-                                        <SelectItem value="3Y">Last 3 Years</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <FormField
+                                control={form.control}
+                                name="pair"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Label>Currency Pair</Label>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="EUR/USD">EUR/USD</SelectItem>
+                                                <SelectItem value="GBP/JPY">GBP/JPY</SelectItem>
+                                                <SelectItem value="XAU/USD">XAU/USD</SelectItem>
+                                                <SelectItem value="US30">US30</SelectItem>
+                                                <SelectItem value="NAS100">NAS100</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="timeframe"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Label>Timeframe</Label>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="1H">1 Hour</SelectItem>
+                                                <SelectItem value="4H">4 Hours</SelectItem>
+                                                <SelectItem value="1D">Daily</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="dateRange"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Label>Date Range</Label>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="3M">Last 3 Months</SelectItem>
+                                                <SelectItem value="6M">Last 6 Months</SelectItem>
+                                                <SelectItem value="1Y">Last Year</SelectItem>
+                                                <SelectItem value="3Y">Last 3 Years</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </FormItem>
+                                )}
+                            />
                         </div>
                         <div className="flex justify-end">
                             <Button type="submit" disabled={isLoading}>
-                                {isLoading ? 'Running Backtest...' : 'Run Backtest'}
+                                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Running Backtest...</> : 'Run Backtest'}
                             </Button>
                         </div>
                     </form>
+                    </Form>
                 </CardContent>
             </Card>
 
-            {isLoading && <p className="text-center text-muted-foreground">AI is analyzing historical data...</p>}
+            {isLoading && 
+                <div className="flex flex-col items-center justify-center text-center gap-4 p-8 rounded-lg border border-dashed">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    <h3 className="text-xl font-semibold">AI Backtest in Progress</h3>
+                    <p className="text-muted-foreground">Please wait while our AI crunches the numbers and simulates your strategy...</p>
+                </div>
+            }
 
             {results && (
                  <Card>
@@ -496,5 +552,3 @@ export default function AnalyticsPage() {
         </div>
     );
 }
-
-    
