@@ -238,10 +238,14 @@ const PerformanceDashboard = () => {
                                 endAngle={-270}
                             >
                                 <RadialBar
-                                    label={{ position: 'insideStart', fill: '#fff', fontSize: '12px' }}
                                     background
                                     dataKey='pnl'
                                 >
+                                     <LabelList 
+                                        position="insideStart" 
+                                        dataKey="name"
+                                        className="fill-background dark:fill-primary-foreground text-xs"
+                                        />
                                     {analyticsData.pnlByPairData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.pnl > 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))'} />
                                     ))}
@@ -576,3 +580,5 @@ export default function AnalyticsPage() {
         </div>
     );
 }
+
+    
