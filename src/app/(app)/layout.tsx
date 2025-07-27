@@ -35,8 +35,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useEffect } from "react";
 
 const navItems = [
@@ -112,7 +113,7 @@ function UserProfileDropdown() {
 
 function DesktopSidebar() {
     const pathname = usePathname();
-    const { user } = useAuthState(auth);
+    const [user] = useAuthState(auth);
     const isActive = (path: string) => {
         if (path === '/profile') {
             return pathname.startsWith('/profile');
@@ -220,6 +221,28 @@ export default function AppLayout({
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    const createUserProfileIfNeeded = async () => {
+        if(user) {
+            const userRef = doc(db, 'users', user.uid);
+            const userSnap = await getDoc(userRef);
+            if (!userSnap.exists()) {
+                await setDoc(userRef, {
+                    uid: user.uid,
+                    displayName: user.displayName,
+                    email: user.email,
+                    photoURL: user.photoURL,
+                    bio: `I'm a new trader on TradeFlow!`,
+                    createdAt: new Date(),
+                });
+            }
+        }
+    };
+    if (!loading && user) {
+        createUserProfileIfNeeded();
+    }
+  }, [user, loading])
 
   if(loading || !user) {
     return (
