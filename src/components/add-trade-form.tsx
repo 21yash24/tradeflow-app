@@ -139,10 +139,14 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
   const screenshotValue = form.watch("screenshot");
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    onSubmit({
-      ...values,
-      date: format(values.date, 'yyyy-MM-dd') as any,
-    });
+    // This is the corrected logic.
+    // The date must be formatted before sending to Firestore.
+    // The onSubmit prop must be called with the values BEFORE the form is reset.
+    const submissionData = {
+        ...values,
+        date: format(values.date, 'yyyy-MM-dd'),
+    };
+    onSubmit(submissionData as any);
     form.reset();
   };
 
@@ -382,5 +386,3 @@ export function AddTradeFlow({ onSubmit }: { onSubmit: (values: Omit<Trade, 'id'
 
     return <AddTradeForm onSubmit={onSubmit} onBack={() => setStep(1)} />;
 }
-
-    
