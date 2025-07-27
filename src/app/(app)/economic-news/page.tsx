@@ -1,15 +1,17 @@
 
 'use client';
 
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Search, Filter, BarChart2, Folder, Bell, Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, Wand2, Loader2, Info, BarChart2, Bell } from "lucide-react";
 import { format, startOfWeek, endOfWeek, add, sub } from 'date-fns';
 import React, { useState, useEffect, useMemo } from 'react';
 import { getEconomicNews, type EconomicEvent } from '@/services/economic-news';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { generateMarketBriefing, MarketBriefing } from "@/ai/flows/market-briefing-flow";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 const getImpactColor = (impact: string) => {
@@ -36,6 +38,8 @@ export default function EconomicNewsPage() {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState<EconomicEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [briefing, setBriefing] = useState<MarketBriefing | null>(null);
 
     const start = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
     const end = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -54,6 +58,11 @@ export default function EconomicNewsPage() {
     }, [start, end]);
 
     const groupedEvents = useMemo(() => groupEventsByDate(events), [events]);
+    const todayEvents = useMemo(() => {
+        const todayStr = format(new Date(), 'EEEE, LLL d');
+        return groupedEvents[todayStr] || [];
+    }, [groupedEvents]);
+
 
     const handlePrevWeek = () => {
         setCurrentDate(sub(currentDate, { weeks: 1 }));
@@ -62,26 +71,95 @@ export default function EconomicNewsPage() {
     const handleNextWeek = () => {
         setCurrentDate(add(currentDate, { weeks: 1 }));
     };
+    
+    const handleGenerateBriefing = async () => {
+        setIsGenerating(true);
+        setBriefing(null);
+        try {
+            const result = await generateMarketBriefing({ events: todayEvents });
+            setBriefing(result);
+        } catch (error) {
+            console.error("Error generating market briefing:", error);
+        } finally {
+            setIsGenerating(false);
+        }
+    }
 
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-8">
+             <div>
+                <h1 className="text-3xl font-bold tracking-tight font-headline">
+                    Economic Calendar
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                    Stay ahead of market-moving events.
+                </p>
+            </div>
+
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between p-3 border-b bg-muted/30">
-                     <div className="flex items-center gap-2">
-                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrevWeek}>
-                            <ChevronLeft className="h-5 w-5" />
+                <CardHeader>
+                    <CardTitle>AI Market Briefing</CardTitle>
+                    <CardDescription>Get a summary of today's key events and their potential impact.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     {briefing && (
+                        <div className="space-y-4">
+                            <Alert>
+                                <Wand2 className="h-4 w-4" />
+                                <AlertTitle className="font-semibold">Today's Outlook</AlertTitle>
+                                <AlertDescription>
+                                    {briefing.overallOutlook}
+                                </AlertDescription>
+                            </Alert>
+                             <h4 className="font-semibold">Key Events Analysis</h4>
+                            <div className="space-y-3">
+                                {briefing.eventAnalyses.map((event, index) => (
+                                    <div key={index} className="p-3 rounded-md border bg-muted/50 text-sm">
+                                        <p className="font-semibold">{event.eventName}</p>
+                                        <p className="text-muted-foreground">{event.analysis}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {isGenerating && (
+                        <div className="flex items-center justify-center gap-2 text-muted-foreground py-4">
+                            <Loader2 className="animate-spin h-5 w-5" />
+                            <p>Generating your daily briefing...</p>
+                        </div>
+                    )}
+                    {!briefing && !isGenerating && (
+                        <Button onClick={handleGenerateBriefing} disabled={todayEvents.length === 0}>
+                            {todayEvents.length > 0 ? (
+                                <>
+                                 <Wand2 className="mr-2 h-4 w-4" />
+                                 Generate Today's Briefing
+                                </>
+                            ) : (
+                                "No events scheduled for today."
+                            )}
+                           
                         </Button>
-                        <h3 className="text-md font-semibold text-foreground whitespace-nowrap">
-                            This Week: {format(start, 'LLL d')} - {format(end, 'LLL d, yyyy')}
-                        </h3>
-                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleNextWeek}>
-                            <ChevronRight className="h-5 w-5" />
-                        </Button>
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm"><Search className="mr-2 h-4 w-4"/>Search Events</Button>
-                        <Button variant="outline" size="sm"><Filter className="mr-2 h-4 w-4"/>Filter</Button>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <CardTitle>This Week's Events</CardTitle>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="icon" onClick={handlePrevWeek} className="h-8 w-8">
+                                <ChevronLeft className="h-5 w-5" />
+                            </Button>
+                            <h3 className="text-lg font-semibold text-foreground whitespace-nowrap">
+                                {format(start, 'MMM d')} - {format(end, 'MMM d, yyyy')}
+                            </h3>
+                            <Button variant="outline" size="icon" onClick={handleNextWeek} className="h-8 w-8">
+                                <ChevronRight className="h-5 w-5" />
+                            </Button>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -157,3 +235,5 @@ export default function EconomicNewsPage() {
         </div>
     );
 }
+
+    
