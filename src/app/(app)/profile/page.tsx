@@ -43,12 +43,6 @@ const UserStat = ({ value, label }: { value: string | number; label: string }) =
   </div>
 );
 
-
-const savedPosts = [
-    { id: 1, screenshot: 'https://placehold.co/400x400.png', pair: 'XAU/USD' },
-    { id: 2, screenshot: 'https://placehold.co/400x400.png', pair: 'US30' },
-];
-
 const CommunityPost = ({ post }: { post: Post }) => {
     const postDate = post.createdAt?.toDate();
     const timeAgo = postDate ? formatDistanceToNow(postDate, { addSuffix: true }) : 'just now';
@@ -105,18 +99,6 @@ const PostSkeleton = () => (
 );
 
 
-const DiscoverPerson = ({ name, handle, avatar }: { name: string, handle: string, avatar: string}) => (
-    <Card className="flex flex-col items-center p-4 text-center shrink-0 w-36">
-        <Avatar className="h-16 w-16 mb-2">
-            <AvatarImage src={avatar} data-ai-hint="profile avatar" />
-            <AvatarFallback>{name.substring(0,2)}</AvatarFallback>
-        </Avatar>
-        <p className="font-semibold text-sm">{name}</p>
-        <p className="text-xs text-muted-foreground mb-3">@{handle}</p>
-        <Button size="sm" className="w-full">Follow</Button>
-    </Card>
-)
-
 export default function ProfilePage() {
   const [user] = useAuthState(auth);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
@@ -156,8 +138,6 @@ export default function ProfilePage() {
             <p className="text-muted-foreground mt-1">Your trading journey, one post at a time.</p>
             <div className="flex gap-6 sm:gap-8 my-4">
                 <UserStat value={userPosts.length} label="posts" />
-                <UserStat value={1952} label="followers" />
-                <UserStat value={292} label="following" />
             </div>
              <div className="flex gap-2 mt-4">
                 <Button asChild className="flex-1"><Link href="/settings">Edit Profile</Link></Button>
@@ -165,17 +145,6 @@ export default function ProfilePage() {
             </div>
         </div>
       </div>
-
-       <div>
-            <h3 className="font-semibold mb-2 flex items-center gap-2"> <Users size={18} /> Discover People</h3>
-            <div className="flex gap-4 overflow-x-auto pb-4">
-               <DiscoverPerson name="JessicaFX" handle="jessica_fx" avatar="https://placehold.co/100x100.png"/>
-               <DiscoverPerson name="MomentumMike" handle="mike_pips" avatar="https://placehold.co/100x100.png"/>
-               <DiscoverPerson name="ScalperSarah" handle="sarah_scalps" avatar="https://placehold.co/100x100.png"/>
-               <DiscoverPerson name="CryptoChris" handle="crypto_c" avatar="https://placehold.co/100x100.png"/>
-               <DiscoverPerson name="AlexTrades" handle="alex_trades" avatar="https://placehold.co/100x100.png"/>
-            </div>
-       </div>
 
       <Tabs defaultValue="posts" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -203,20 +172,11 @@ export default function ProfilePage() {
           </div>
         </TabsContent>
         <TabsContent value="saved">
-             <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-4">
-                {savedPosts.map(post => (
-                     <div key={post.id} className="relative aspect-square cursor-pointer" onClick={() => setViewingImage(post.screenshot)}>
-                        <Image src={post.screenshot} alt={`Trade on ${post.pair}`} layout="fill" objectFit="cover" className="rounded-md" data-ai-hint="trade chart" />
-                     </div>
-                ))}
-              </div>
-              {savedPosts.length === 0 && (
-                 <div className="text-center py-16 text-muted-foreground">
-                    <Bookmark size={48} className="mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold">No Saved Posts Yet</h3>
-                    <p>Posts you save will appear here.</p>
-                </div>
-              )}
+             <div className="text-center py-16 text-muted-foreground">
+                <Bookmark size={48} className="mx-auto mb-4" />
+                <h3 className="text-xl font-semibold">No Saved Posts Yet</h3>
+                <p>Posts you save will appear here.</p>
+            </div>
         </TabsContent>
       </Tabs>
 
