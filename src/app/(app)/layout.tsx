@@ -1,3 +1,7 @@
+
+'use client';
+
+import { usePathname } from "next/navigation";
 import {
   SidebarProvider,
   Sidebar,
@@ -29,6 +33,9 @@ export default function AppLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = usePathname();
+  const isActive = (path: string) => pathname === path;
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -46,7 +53,7 @@ export default function AppLayout({
               <SidebarMenuButton
                 asChild
                 tooltip="Sentiment Analysis"
-                isActive={true}
+                isActive={isActive('/sentiment-analysis')}
               >
                 <Link href="/sentiment-analysis">
                   <Search />
@@ -55,32 +62,32 @@ export default function AppLayout({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Journal">
-                <Link href="#">
+              <SidebarMenuButton asChild tooltip="Journal" isActive={isActive('/journal')}>
+                <Link href="/journal">
                   <BookOpenCheck />
                   <span>Journal</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Analytics">
-                <Link href="#">
+              <SidebarMenuButton asChild tooltip="Analytics" isActive={isActive('/analytics')}>
+                <Link href="/analytics">
                   <BarChart3 />
                   <span>Analytics</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Economic News">
-                <Link href="#">
+              <SidebarMenuButton asChild tooltip="Economic News" isActive={isActive('/economic-news')}>
+                <Link href="/economic-news">
                   <Newspaper />
                   <span>Economic News</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Discipline">
-                <Link href="#">
+              <SidebarMenuButton asChild tooltip="Discipline" isActive={isActive('/discipline')}>
+                <Link href="/discipline">
                   <ShieldCheck />
                   <span>Discipline</span>
                 </Link>
@@ -91,8 +98,8 @@ export default function AppLayout({
         <SidebarFooter>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Settings">
-                <Link href="#">
+              <SidebarMenuButton asChild tooltip="Settings" isActive={isActive('/settings')}>
+                <Link href="/settings">
                   <Settings />
                   <span>Settings</span>
                 </Link>
