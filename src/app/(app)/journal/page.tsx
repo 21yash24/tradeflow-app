@@ -374,7 +374,7 @@ export default function JournalPage() {
                                     Analyze with AI
                                 </Button>
                             )}
-                            <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade.id)}>
+                             <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade.id)}>
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </div>
@@ -387,4 +387,3 @@ export default function JournalPage() {
     </div>
   );
 }
-
