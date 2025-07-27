@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Grid3x3, Bookmark, Users, MessageCircle, Repeat, Heart, Loader2 } from 'lucide-react';
+import { Grid3x3, Bookmark, Users, MessageCircle, Repeat, Heart } from 'lucide-react';
 import Image from 'next/image';
 import {
   Dialog,
@@ -19,6 +19,8 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 type Post = {
     id: string;
@@ -87,6 +89,21 @@ const CommunityPost = ({ post }: { post: Post }) => {
     );
 };
 
+const PostSkeleton = () => (
+    <Card className="mb-4">
+        <CardContent className="p-4">
+            <div className="flex items-start gap-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="w-full space-y-2">
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                </div>
+            </div>
+        </CardContent>
+    </Card>
+);
+
 
 const DiscoverPerson = ({ name, handle, avatar }: { name: string, handle: string, avatar: string}) => (
     <Card className="flex flex-col items-center p-4 text-center shrink-0 w-36">
@@ -136,7 +153,7 @@ export default function ProfilePage() {
             <div className="flex items-center gap-4">
                 <h2 className="text-2xl font-bold font-headline">{user?.displayName || "Trader"}</h2>
             </div>
-            <p className="text-muted-foreground mt-1">Focused on technical analysis and swing trading major FX pairs.</p>
+            <p className="text-muted-foreground mt-1">Your trading journey, one post at a time.</p>
             <div className="flex gap-6 sm:gap-8 my-4">
                 <UserStat value={userPosts.length} label="posts" />
                 <UserStat value={1952} label="followers" />
@@ -168,7 +185,10 @@ export default function ProfilePage() {
         <TabsContent value="posts">
           <div>
             {isLoadingPosts ? (
-                <div className="text-center py-16"><Loader2 className="mx-auto h-8 w-8 animate-spin" /></div>
+                <div className="space-y-4 pt-4">
+                    <PostSkeleton />
+                    <PostSkeleton />
+                </div>
             ) : userPosts.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
                     <MessageCircle size={48} className="mx-auto mb-4" />
