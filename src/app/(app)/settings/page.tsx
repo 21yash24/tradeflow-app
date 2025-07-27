@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -46,6 +47,14 @@ export default function SettingsPage() {
                          <div className="space-y-2">
                             <Label htmlFor="email">Email</Label>
                             <Input id="email" type="email" defaultValue="pilot@tradeflow.app" />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="avatar">Avatar URL</Label>
+                            <Input id="avatar" type="url" defaultValue="https://placehold.co/100x100.png" />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="bio">Bio</Label>
+                            <Textarea id="bio" placeholder="Tell us a little about your trading style." defaultValue="Focused on technical analysis and swing trading major FX pairs." />
                         </div>
                     </CardContent>
                 </Card>
