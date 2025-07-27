@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -23,15 +24,16 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { CalendarIcon, CheckCircle2 } from "lucide-react";
+import { CalendarIcon, CheckCircle2, Upload } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Slider } from "./ui/slider";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
+import Image from "next/image";
 
 const formSchema = z.object({
   accountId: z.string().min(1, "Account is required."),
@@ -43,6 +45,7 @@ const formSchema = z.object({
   notes: z.string().optional(),
   confidence: z.number().min(0).max(100).default(50),
   mentalState: z.string().optional(),
+  screenshot: z.string().optional(),
 });
 
 // We infer the type from the schema and add the id
@@ -117,6 +120,7 @@ function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
 
 
 function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -127,9 +131,12 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
       setup: "",
       notes: "",
       confidence: 50,
-      mentalState: ""
+      mentalState: "",
+      screenshot: ""
     },
   });
+
+  const screenshotValue = form.watch("screenshot");
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     onSubmit({
@@ -139,9 +146,21 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
     form.reset();
   };
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        form.setValue("screenshot", reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
         <FormField
             control={form.control}
             name="accountId"
@@ -315,7 +334,35 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
             </FormItem>
           )}
         />
-        <div className="flex justify-between">
+        <FormField
+          control={form.control}
+          name="screenshot"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Trade Screenshot</FormLabel>
+              <FormControl>
+                 <Input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                />
+              </FormControl>
+              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                 <Upload className="mr-2 h-4 w-4" />
+                 Upload Image
+              </Button>
+              {screenshotValue && (
+                <div className="mt-4 relative w-full h-48">
+                  <Image src={screenshotValue} alt="Screenshot preview" layout="fill" objectFit="contain" className="rounded-md border" />
+                </div>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="flex justify-between pt-4">
             <Button type="button" variant="ghost" onClick={onBack}>Back</Button>
             <Button type="submit">
                 Add Trade

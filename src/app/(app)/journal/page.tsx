@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Image as ImageIcon } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { AddTradeFlow, type Trade } from "@/components/add-trade-form";
+import Image from "next/image";
 
 const initialTrades: Trade[] = [
   {
@@ -35,7 +36,8 @@ const initialTrades: Trade[] = [
     setup: "Breakout",
     notes: "Followed plan perfectly.",
     confidence: 80,
-    mentalState: "Focused and disciplined."
+    mentalState: "Focused and disciplined.",
+    screenshot: "https://placehold.co/1200x800.png"
   },
   {
     id: "2",
@@ -59,13 +61,15 @@ const initialTrades: Trade[] = [
     setup: "Continuation",
     notes: "Good risk management.",
     confidence: 90,
-    mentalState: "Confident and in the zone."
+    mentalState: "Confident and in the zone.",
+    screenshot: "https://placehold.co/1200x800.png"
   },
 ];
 
 export default function JournalPage() {
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddTradeDialogOpen, setAddTradeDialogOpen] = useState(false);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   const handleAddTrade = (newTrade: Omit<Trade, 'id'>) => {
     console.log("New trade added:", newTrade);
@@ -73,7 +77,7 @@ export default function JournalPage() {
         { ...newTrade, id: (prevTrades.length + 1).toString() },
         ...prevTrades
     ]);
-    setIsDialogOpen(false);
+    setAddTradeDialogOpen(false);
   };
 
   return (
@@ -87,14 +91,14 @@ export default function JournalPage() {
             Log your trades and reflect on your decisions.
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isAddTradeDialogOpen} onOpenChange={setAddTradeDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="mr-2" />
               Add Trade
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-xl">
             <DialogHeader>
               <DialogTitle>Add New Trade</DialogTitle>
               <DialogDescription>
@@ -118,6 +122,7 @@ export default function JournalPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>P/L</TableHead>
                 <TableHead>Setup</TableHead>
+                <TableHead className="text-center">Chart</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -146,9 +151,16 @@ export default function JournalPage() {
                     ${trade.pnl.toFixed(2)}
                   </TableCell>
                   <TableCell>{trade.setup}</TableCell>
+                   <TableCell className="text-center">
+                    {trade.screenshot && (
+                      <Button variant="ghost" size="icon" onClick={() => setViewingImage(trade.screenshot!)}>
+                        <ImageIcon className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm">
-                      View
+                      View Details
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -157,6 +169,20 @@ export default function JournalPage() {
           </Table>
         </CardContent>
       </Card>
+      
+       <Dialog open={!!viewingImage} onOpenChange={(isOpen) => !isOpen && setViewingImage(null)}>
+        <DialogContent className="max-w-4xl">
+            <DialogHeader>
+                <DialogTitle>Trade Screenshot</DialogTitle>
+            </DialogHeader>
+            {viewingImage && (
+                 <div className="mt-4">
+                    <Image src={viewingImage} alt="Trade Screenshot" width={1200} height={800} className="rounded-md" />
+                 </div>
+            )}
+        </DialogContent>
+       </Dialog>
+
     </div>
   );
 }
