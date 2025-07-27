@@ -13,6 +13,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const checklistItems = [
     { id: 'review_plan', label: 'I reviewed my trading plan.' },
@@ -260,5 +261,3 @@ const DisciplineTrackerPage = () => {
 }
 
 export default DisciplineTrackerPage;
-
-    
