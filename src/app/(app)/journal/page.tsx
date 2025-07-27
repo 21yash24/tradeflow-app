@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { AddTradeFlow, type Trade } from "@/components/add-trade-form";
 import Image from "next/image";
@@ -150,9 +151,15 @@ export default function JournalPage() {
   };
   
   const handleDeleteTrade = async (tradeId: string) => {
-    if(window.confirm("Are you sure you want to delete this trade?")){
-        await deleteDoc(doc(db, "trades", tradeId));
-        handleCloseDetails();
+    if(window.confirm("Are you sure you want to delete this trade? This action cannot be undone.")){
+        try {
+            await deleteDoc(doc(db, "trades", tradeId));
+            toast({ title: "Trade Deleted", description: "The trade has been removed from your journal."});
+            handleCloseDetails();
+        } catch (error) {
+            console.error("Error deleting trade:", error);
+            toast({ title: "Error", description: "Could not delete trade.", variant: "destructive"});
+        }
     }
   }
 
@@ -307,7 +314,8 @@ export default function JournalPage() {
                 </DialogDescription>
             </DialogHeader>
             {viewingTrade && (
-                 <div className="mt-4 space-y-6">
+                <>
+                 <div className="mt-4 space-y-6 max-h-[60vh] overflow-y-auto pr-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div className="space-y-1">
                             <p className="text-muted-foreground">Account</p>
@@ -341,7 +349,7 @@ export default function JournalPage() {
                     
                     <div className="space-y-2">
                          <h4 className="font-semibold flex items-center gap-2"><FileText size={16} /> Notes</h4>
-                         <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md border">
+                         <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md border whitespace-pre-wrap">
                             {viewingTrade.notes || "No notes were added for this trade."}
                          </p>
                     </div>
@@ -349,8 +357,11 @@ export default function JournalPage() {
                     {viewingTrade.screenshot && (
                         <div className="space-y-2">
                              <h4 className="font-semibold flex items-center gap-2"><ImageIcon size={16} /> Screenshot</h4>
-                             <div className="relative w-full h-64 rounded-md border overflow-hidden cursor-pointer" onClick={() => { setViewingImage(viewingTrade.screenshot!); setViewingTrade(null);}}>
+                             <div className="relative w-full h-64 rounded-md border overflow-hidden cursor-pointer group" onClick={() => { setViewingImage(viewingTrade.screenshot!); setViewingTrade(null);}}>
                                 <Image src={viewingTrade.screenshot} alt="Trade Screenshot" layout="fill" objectFit="cover" />
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <p className="text-white font-semibold">Click to enlarge</p>
+                                </div>
                              </div>
                         </div>
                     )}
@@ -366,24 +377,29 @@ export default function JournalPage() {
                                 <p>Analyzing your trade...</p>
                             </div>
                         )}
-
-                        <div className="flex gap-2">
-                            {!analysisResult && !isAnalyzing && (
-                                <Button onClick={handleAnalyzeTrade} className="w-full">
-                                    <Wand2 className="mr-2 h-4 w-4" />
-                                    Analyze with AI
-                                </Button>
-                            )}
-                             <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade.id)}>
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </div>
                     </div>
-
                  </div>
+                 <DialogFooter className="pt-4 border-t">
+                    <div className="flex w-full justify-between items-center">
+                        <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade!.id)}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete Trade</span>
+                        </Button>
+
+                        {!analysisResult && !isAnalyzing && (
+                            <Button onClick={handleAnalyzeTrade} className="w-full max-w-xs">
+                                <Wand2 className="mr-2 h-4 w-4" />
+                                Analyze with AI
+                            </Button>
+                        )}
+                    </div>
+                </DialogFooter>
+                </>
             )}
         </DialogContent>
        </Dialog>
     </div>
   );
 }
+
+    
