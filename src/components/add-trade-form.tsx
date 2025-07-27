@@ -66,10 +66,11 @@ export type Trade = z.infer<typeof formSchema> & { id: string; userId: string; }
 type AddTradeFormProps = {
   onSubmit: (values: Omit<Trade, 'id' | 'userId'>) => void;
   onBack: () => void;
+  initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date };
 };
 
 
-function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
+function PreTradeChecklist({ onContinue, isEditMode }: { onContinue: () => void, isEditMode: boolean }) {
     const [user] = useAuthState(auth);
     const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -118,6 +119,13 @@ function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
         )
     }
 
+    // Skip checklist if in edit mode
+    if (isEditMode) {
+        onContinue();
+        return null;
+    }
+
+
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center mb-4">
@@ -155,7 +163,7 @@ function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
 }
 
 
-function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
+function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [user] = useAuthState(auth);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -163,7 +171,7 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: initialData || {
       accountId: "",
       pair: "",
       type: "buy",
@@ -215,6 +223,8 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
       reader.readAsDataURL(file);
     }
   };
+
+  const isEditMode = !!initialData;
 
 
   return (
@@ -351,7 +361,7 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
               <FormLabel>Confidence ({field.value}%)</FormLabel>
               <FormControl>
                 <Slider
-                  defaultValue={[50]}
+                  defaultValue={[field.value || 50]}
                   max={100}
                   step={1}
                   onValueChange={(value) => field.onChange(value[0])}
@@ -422,9 +432,9 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
           )}
         />
         <div className="flex justify-between pt-4">
-            <Button type="button" variant="ghost" onClick={onBack}>Back</Button>
+            {!isEditMode && <Button type="button" variant="ghost" onClick={onBack}>Back</Button>}
             <Button type="submit">
-                Add Trade
+                {isEditMode ? 'Save Changes' : 'Add Trade'}
             </Button>
         </div>
       </form>
@@ -432,12 +442,24 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
   );
 }
 
-export function AddTradeFlow({ onSubmit }: { onSubmit: (values: Omit<Trade, 'id' | 'userId'>) => void }) {
-    const [step, setStep] = useState(1);
+export function AddTradeFlow({ 
+    onSubmit, 
+    initialData,
+    onDone,
+}: { 
+    onSubmit: (values: Omit<Trade, 'id' | 'userId'>) => void,
+    initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date },
+    onDone: () => void,
+}) {
+    const [step, setStep] = useState(initialData ? 2 : 1);
 
     if (step === 1) {
-        return <PreTradeChecklist onContinue={() => setStep(2)} />;
+        return <PreTradeChecklist onContinue={() => setStep(2)} isEditMode={!!initialData} />;
     }
 
-    return <AddTradeForm onSubmit={onSubmit} onBack={() => setStep(1)} />;
+    return <AddTradeForm 
+                onSubmit={onSubmit} 
+                onBack={() => setStep(1)} 
+                initialData={initialData} 
+            />;
 }

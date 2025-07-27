@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2 } from "lucide-react";
+import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2, Edit } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -29,9 +29,10 @@ import { Separator } from "@/components/ui/separator";
 import { analyzeTrade, TradeAnalysis } from "@/ai/flows/trade-analyst-flow";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useToast } from "@/hooks/use-toast";
+import { parseISO } from "date-fns";
 
 type Account = {
     id: string;
@@ -86,7 +87,8 @@ export default function JournalPage() {
   const { toast } = useToast();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [accounts, setAccounts] = useState<Record<string, Account>>({});
-  const [isAddTradeDialogOpen, setAddTradeDialogOpen] = useState(false);
+  const [isTradeDialogOpen, setTradeDialogOpen] = useState(false);
+  const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [viewingTrade, setViewingTrade] = useState<Trade | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -126,10 +128,39 @@ export default function JournalPage() {
     }
   }, [user]);
 
-  const handleAddTrade = async (newTrade: Omit<Trade, 'id' | 'userId'>) => {
-    if (user) {
+  const handleOpenAddDialog = () => {
+      setEditingTrade(null);
+      setTradeDialogOpen(true);
+  }
+  
+  const handleOpenEditDialog = (trade: Trade) => {
+      setViewingTrade(null);
+      const tradeWithDate = {
+          ...trade,
+          date: parseISO(trade.date), // Convert string date back to Date object for the form
+      }
+      setEditingTrade(tradeWithDate as any);
+      setTradeDialogOpen(true);
+  }
+
+  const handleTradeSubmit = async (tradeData: Omit<Trade, 'id' | 'userId'>) => {
+    if (!user) return;
+    
+    if (editingTrade) { // Update existing trade
+        const tradeRef = doc(db, "trades", editingTrade.id);
+        try {
+            await updateDoc(tradeRef, {
+                ...tradeData,
+                userId: user.uid,
+            });
+            toast({ title: "Trade Updated", description: "Your changes have been saved." });
+        } catch (error) {
+            console.error("Error updating trade:", error);
+            toast({ title: "Error", description: "Could not update your trade.", variant: "destructive" });
+        }
+    } else { // Add new trade
         const newTradeWithUser = {
-            ...newTrade,
+            ...tradeData,
             userId: user.uid,
         };
         try {
@@ -147,7 +178,8 @@ export default function JournalPage() {
             });
         }
     }
-    setAddTradeDialogOpen(false);
+    setTradeDialogOpen(false);
+    setEditingTrade(null);
   };
   
   const handleDeleteTrade = async (tradeId: string) => {
@@ -201,24 +233,31 @@ export default function JournalPage() {
             Log your trades and reflect on your decisions.
           </p>
         </div>
-        <Dialog open={isAddTradeDialogOpen} onOpenChange={setAddTradeDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2" />
-              Add Trade
-            </Button>
-          </DialogTrigger>
+        <Button onClick={handleOpenAddDialog}>
+            <PlusCircle className="mr-2" />
+            Add Trade
+        </Button>
+      </div>
+
+       <Dialog open={isTradeDialogOpen} onOpenChange={setTradeDialogOpen}>
           <DialogContent className="sm:max-w-xl">
             <DialogHeader>
-              <DialogTitle>Add New Trade</DialogTitle>
+              <DialogTitle>{editingTrade ? 'Edit Trade' : 'Add New Trade'}</DialogTitle>
               <DialogDescription>
-                Follow the steps to log a new trade to your journal.
+                {editingTrade ? 'Update the details of your trade.' : 'Follow the steps to log a new trade to your journal.'}
               </DialogDescription>
             </DialogHeader>
-            <AddTradeFlow onSubmit={handleAddTrade} />
+            <AddTradeFlow 
+                onSubmit={handleTradeSubmit} 
+                initialData={editingTrade || undefined}
+                onDone={() => {
+                    setTradeDialogOpen(false);
+                    setEditingTrade(null);
+                }}
+            />
           </DialogContent>
         </Dialog>
-      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Trade History</CardTitle>
@@ -380,11 +419,16 @@ export default function JournalPage() {
                     </div>
                  </div>
                  <DialogFooter className="pt-4 mt-4 border-t">
-                     <div className="flex w-full justify-between items-center">
+                     <div className="flex w-full justify-between items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleOpenEditDialog(viewingTrade)}>
+                           <Edit className="h-4 w-4" />
+                           <span className="sr-only">Edit Trade</span>
+                        </Button>
                         <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade!.id)}>
                             <Trash2 className="h-4 w-4" />
                             <span className="sr-only">Delete Trade</span>
                         </Button>
+                        <div className="flex-grow" />
                         {!analysisResult && !isAnalyzing && (
                             <Button onClick={handleAnalyzeTrade} className="w-full max-w-xs">
                                 <Wand2 className="mr-2 h-4 w-4" />
