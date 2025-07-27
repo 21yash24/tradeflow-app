@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { PlusCircle, Image as ImageIcon, FileText } from "lucide-react";
+import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2 } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -25,6 +25,8 @@ import {
 import { AddTradeFlow, type Trade } from "@/components/add-trade-form";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
+import { analyzeTrade, TradeAnalysis } from "@/ai/flows/trade-analyst-flow";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const initialTrades: Trade[] = [
   {
@@ -73,11 +75,55 @@ const accountIdToName: Record<string, string> = {
     "acc-3": "Swing Account ($25k)"
 };
 
+function TradeAnalysisResult({ analysis }: { analysis: TradeAnalysis }) {
+    return (
+        <div className="space-y-4 text-sm">
+            <Alert variant="default" className="border-yellow-400/50">
+                 <Wand2 className="h-4 w-4 text-yellow-400" />
+                <AlertTitle className="text-yellow-400">AI Analysis</AlertTitle>
+                <AlertDescription>
+                    {analysis.summary}
+                </AlertDescription>
+            </Alert>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Card className="bg-green-900/20 border-green-500/30">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base text-green-400">What Went Well</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground">{analysis.whatWentWell}</p>
+                    </CardContent>
+                </Card>
+                <Card className="bg-red-900/20 border-red-500/30">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base text-red-400">What to Improve</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground">{analysis.whatToImprove}</p>
+                    </CardContent>
+                </Card>
+            </div>
+             <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Potential Biases</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">{analysis.potentialBiases}</p>
+                </CardContent>
+            </Card>
+
+        </div>
+    )
+}
+
 export default function JournalPage() {
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
   const [isAddTradeDialogOpen, setAddTradeDialogOpen] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [viewingTrade, setViewingTrade] = useState<Trade | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<TradeAnalysis | null>(null);
 
   const handleAddTrade = (newTrade: Omit<Trade, 'id'>) => {
     console.log("New trade added:", newTrade);
@@ -87,6 +133,34 @@ export default function JournalPage() {
     ]);
     setAddTradeDialogOpen(false);
   };
+
+  const handleAnalyzeTrade = async () => {
+    if (!viewingTrade) return;
+
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+    try {
+        const result = await analyzeTrade({
+            pair: viewingTrade.pair,
+            type: viewingTrade.type,
+            pnl: viewingTrade.pnl,
+            notes: viewingTrade.notes || "",
+            mentalState: viewingTrade.mentalState || "",
+        });
+        setAnalysisResult(result);
+    } catch (error) {
+        console.error("Error analyzing trade:", error);
+        // You might want to show a toast notification here
+    } finally {
+        setIsAnalyzing(false);
+    }
+  }
+
+  const handleCloseDetails = () => {
+    setViewingTrade(null);
+    setAnalysisResult(null);
+    setIsAnalyzing(false);
+  }
 
   return (
     <div className="space-y-6">
@@ -191,8 +265,8 @@ export default function JournalPage() {
         </DialogContent>
        </Dialog>
 
-       <Dialog open={!!viewingTrade} onOpenChange={(isOpen) => !isOpen && setViewingTrade(null)}>
-        <DialogContent className="sm:max-w-lg">
+       <Dialog open={!!viewingTrade} onOpenChange={(isOpen) => !isOpen && handleCloseDetails()}>
+        <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
                 <DialogTitle>Trade Details</DialogTitle>
                 <DialogDescription>
@@ -247,6 +321,27 @@ export default function JournalPage() {
                              </div>
                         </div>
                     )}
+                    
+                    <Separator />
+
+                    <div>
+                        {analysisResult && <TradeAnalysisResult analysis={analysisResult} />}
+                        
+                        {isAnalyzing && (
+                            <div className="flex items-center justify-center gap-2 text-muted-foreground py-4">
+                                <Loader2 className="animate-spin h-5 w-5" />
+                                <p>Analyzing your trade...</p>
+                            </div>
+                        )}
+
+                        {!analysisResult && !isAnalyzing && (
+                            <Button onClick={handleAnalyzeTrade} className="w-full">
+                                <Wand2 className="mr-2 h-4 w-4" />
+                                Analyze with AI
+                            </Button>
+                        )}
+                    </div>
+
                  </div>
             )}
         </DialogContent>

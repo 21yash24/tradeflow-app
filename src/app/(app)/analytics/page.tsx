@@ -78,13 +78,15 @@ export default function AnalyticsPage() {
 
         const pnlByPair = trades.reduce((acc, trade) => {
             if (!acc[trade.pair]) {
-                acc[trade.pair] = { name: trade.pair, value: 0 };
+                acc[trade.pair] = { name: trade.pair, pnl: 0 };
             }
-            acc[trade.pair].value += trade.pnl;
+            acc[trade.pair].pnl += trade.pnl;
             return acc;
-        }, {} as Record<string, { name: string, value: number }>);
+        }, {} as Record<string, { name: string, pnl: number }>);
         
-        const pnlByPairData = Object.values(pnlByPair).map(d => ({...d, value: parseFloat(d.value.toFixed(2))}));
+        const pnlByPairData = Object.values(pnlByPair)
+            .map(d => ({...d, pnl: parseFloat(d.pnl.toFixed(2))}))
+            .sort((a,b) => b.pnl - a.pnl);
 
         const tradesByDay = trades.reduce((acc, trade) => {
             const dateKey = format(parseISO(trade.date), 'yyyy-MM-dd');
@@ -230,17 +232,28 @@ export default function AnalyticsPage() {
                         <CardTitle>P/L by Pair</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
+                       <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={analyticsData.pnlByPairData} layout="vertical" margin={{ left: -10, right: 10 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+                                <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
                                 <Tooltip
-                                     contentStyle={{
+                                    cursor={{fill: 'hsl(var(--muted))'}}
+                                    contentStyle={{
                                         backgroundColor: "hsl(var(--background))",
                                         borderColor: "hsl(var(--border))"
                                     }}
                                 />
-                                <Pie data={analyticsData.pnlByPairData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} fill="hsl(var(--accent))" label={(entry) => entry.name}>
-                                </Pie>
-                            </PieChart>
+                                <Bar dataKey="pnl" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}>
+                                     <LabelList 
+                                        dataKey="pnl" 
+                                        position="right" 
+                                        offset={8}
+                                        className="fill-foreground font-medium"
+                                        formatter={(value:number) => `$${value.toFixed(0)}`}
+                                    />
+                                </Bar>
+                            </BarChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
