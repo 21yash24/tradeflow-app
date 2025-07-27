@@ -12,9 +12,11 @@ import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { type UserProfile, type ChecklistItem } from "@/services/user-service";
-import { Loader2, Upload, Trash2, PlusCircle } from "lucide-react";
+import { Loader2, Upload, Trash2, PlusCircle, User, ListChecks } from "lucide-react";
 import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 const defaultPreTradeChecklist: ChecklistItem[] = [
     { id: 'check1', label: 'Market conditions align with my strategy.' },
@@ -148,14 +150,14 @@ export default function SettingsPage() {
             }
 
             toast({
-                title: "Profile Updated",
-                description: "Your profile has been saved successfully.",
+                title: "Settings Saved",
+                description: "Your changes have been saved successfully.",
             });
         } catch (error) {
             console.error("Error updating profile:", error);
             toast({
                 title: "Error",
-                description: "Could not save your profile.",
+                description: "Could not save your settings.",
                 variant: "destructive",
             });
         } finally {
@@ -181,66 +183,73 @@ export default function SettingsPage() {
                 Manage your public profile and checklist settings.
             </p>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-8">
-             <Card>
-                <CardHeader>
-                    <CardTitle>Public Details</CardTitle>
-                    <CardDescription>This information will be displayed on your profile.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="space-y-2">
-                        <Label>Avatar</Label>
-                        <div className="flex items-center gap-4">
-                            <Avatar className="h-20 w-20">
-                                <AvatarImage src={profile.photoURL || `https://placehold.co/150x150.png`} data-ai-hint="profile avatar" />
-                                <AvatarFallback>{profile.displayName?.charAt(0) || 'U'}</AvatarFallback>
-                            </Avatar>
-                            <Input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                            />
-                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                <Upload className="mr-2 h-4 w-4" />
-                                Upload Image
-                            </Button>
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="displayName">Display Name</Label>
-                        <Input id="displayName" value={profile.displayName || ''} onChange={handleInputChange} />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="bio">Bio</Label>
-                        <Textarea id="bio" placeholder="Tell us a little about your trading style." value={profile.bio || ''} onChange={handleInputChange} />
-                    </div>
-                </CardContent>
-            </Card>
-
-            <ChecklistManager 
-                title="Pre-Trade Checklist"
-                description="Customize the checklist that appears before you log a trade."
-                items={profile.preTradeChecklist || []}
-                setItems={(items) => setProfile(p => ({...p, preTradeChecklist: items}))}
-            />
-
-            <ChecklistManager 
-                title="Daily Discipline Checklist"
-                description="Customize your daily habit tracker."
-                items={profile.disciplineChecklist || []}
-                setItems={(items) => setProfile(p => ({...p, disciplineChecklist: items}))}
-            />
-
-
-            <div className="flex justify-end">
+        <form onSubmit={handleSubmit}>
+            <Tabs defaultValue="profile" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="profile"><User className="mr-2" />Profile</TabsTrigger>
+                    <TabsTrigger value="checklists"><ListChecks className="mr-2" />Checklists</TabsTrigger>
+                </TabsList>
+                <TabsContent value="profile" className="mt-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Public Details</CardTitle>
+                            <CardDescription>This information will be displayed on your profile.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="space-y-2">
+                                <Label>Avatar</Label>
+                                <div className="flex items-center gap-4">
+                                    <Avatar className="h-20 w-20">
+                                        <AvatarImage src={profile.photoURL || `https://placehold.co/150x150.png`} data-ai-hint="profile avatar" />
+                                        <AvatarFallback>{profile.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                                    </Avatar>
+                                    <Input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        ref={fileInputRef}
+                                        onChange={handleFileChange}
+                                    />
+                                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Upload Image
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="displayName">Display Name</Label>
+                                <Input id="displayName" value={profile.displayName || ''} onChange={handleInputChange} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="bio">Bio</Label>
+                                <Textarea id="bio" placeholder="Tell us a little about your trading style." value={profile.bio || ''} onChange={handleInputChange} />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                <TabsContent value="checklists" className="mt-6 space-y-6">
+                    <ChecklistManager 
+                        title="Pre-Trade Checklist"
+                        description="Customize the checklist that appears before you log a trade."
+                        items={profile.preTradeChecklist || []}
+                        setItems={(items) => setProfile(p => ({...p, preTradeChecklist: items}))}
+                    />
+                    <ChecklistManager 
+                        title="Daily Discipline Checklist"
+                        description="Customize your daily habit tracker."
+                        items={profile.disciplineChecklist || []}
+                        setItems={(items) => setProfile(p => ({...p, disciplineChecklist: items}))}
+                    />
+                </TabsContent>
+            </Tabs>
+            <div className="flex justify-end mt-8">
                 <Button type="submit" disabled={isSaving}>
                     {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
+                    Save All Changes
                 </Button>
             </div>
         </form>
     </div>
   );
 }
+
