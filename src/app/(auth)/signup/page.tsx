@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { getAuth, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { TradeFlowLogo } from "@/components/icons";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { auth } from "@/lib/firebase";
 
 const formSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -25,7 +26,6 @@ export default function SignupPage() {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
     const { toast } = useToast();
-    const auth = getAuth();
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -93,4 +93,3 @@ export default function SignupPage() {
         </div>
     );
 }
-

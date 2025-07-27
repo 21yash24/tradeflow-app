@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { TradeFlowLogo } from "@/components/icons";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { auth } from "@/lib/firebase";
 
 const formSchema = z.object({
   email: z.string().email(),
@@ -24,7 +25,6 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
     const { toast } = useToast();
-    const auth = getAuth();
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
