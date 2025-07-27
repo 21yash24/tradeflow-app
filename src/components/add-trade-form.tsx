@@ -28,6 +28,10 @@ import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Slider } from "./ui/slider";
+import { useState } from "react";
+import { Checkbox } from "./ui/checkbox";
+import { Label } from "./ui/label";
+import { Separator } from "./ui/separator";
 
 const formSchema = z.object({
   pair: z.string().min(1, "Currency pair is required."),
@@ -45,9 +49,56 @@ export type Trade = z.infer<typeof formSchema> & { id: string };
 
 type AddTradeFormProps = {
   onSubmit: (values: Omit<Trade, 'id'>) => void;
+  onBack: () => void;
 };
 
-export function AddTradeForm({ onSubmit }: AddTradeFormProps) {
+const checklistItems = [
+    { id: 'check1', label: 'Market conditions align with my strategy.' },
+    { id: 'check2', label: 'The risk/reward ratio is favorable (e.g., 1:2 or better).' },
+    { id: 'check3', label: 'I have a clear entry signal.' },
+    { id: 'check4', label: 'I have a pre-defined stop-loss level.' },
+    { id: 'check5', label: 'I have a pre-defined take-profit level.' },
+    { id: 'check6', label: 'I am not emotionally influenced by previous trades.' },
+];
+
+
+function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
+    const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+    const allChecked = Object.values(checkedItems).length === checklistItems.length && Object.values(checkedItems).every(Boolean);
+    
+    const handleCheckboxChange = (id: string) => {
+        setCheckedItems(prev => ({ ...prev, [id]: !prev[id] }));
+    }
+
+    return (
+        <div className="space-y-4">
+            <h3 className="text-lg font-medium">Pre-Trade Checklist</h3>
+            {checklistItems.map((item, index) => (
+                <div key={item.id}>
+                    <div className="flex items-center space-x-3">
+                        <Checkbox 
+                            id={item.id} 
+                            checked={checkedItems[item.id] || false}
+                            onCheckedChange={() => handleCheckboxChange(item.id)}
+                        />
+                        <Label htmlFor={item.id} className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            {item.label}
+                        </Label>
+                    </div>
+                    {index < checklistItems.length - 1 && <Separator className="mt-4" />}
+                </div>
+            ))}
+            <div className="mt-6 flex justify-end">
+                <Button onClick={onContinue} disabled={!allChecked}>
+                    Continue
+                </Button>
+            </div>
+        </div>
+    );
+}
+
+
+function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -223,10 +274,23 @@ export function AddTradeForm({ onSubmit }: AddTradeFormProps) {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full">
-          Add Trade
-        </Button>
+        <div className="flex justify-between">
+            <Button type="button" variant="ghost" onClick={onBack}>Back</Button>
+            <Button type="submit">
+                Add Trade
+            </Button>
+        </div>
       </form>
     </Form>
   );
+}
+
+export function AddTradeFlow({ onSubmit }: { onSubmit: (values: Omit<Trade, 'id'>) => void }) {
+    const [step, setStep] = useState(1);
+
+    if (step === 1) {
+        return <PreTradeChecklist onContinue={() => setStep(2)} />;
+    }
+
+    return <AddTradeForm onSubmit={onSubmit} onBack={() => setStep(1)} />;
 }

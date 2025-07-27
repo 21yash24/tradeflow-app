@@ -22,7 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { AddTradeForm, type Trade } from "@/components/add-trade-form";
+import { AddTradeFlow, type Trade } from "@/components/add-trade-form";
 
 const initialTrades: Trade[] = [
   {
@@ -94,10 +94,10 @@ export default function JournalPage() {
             <DialogHeader>
               <DialogTitle>Add New Trade</DialogTitle>
               <DialogDescription>
-                Log a new trade to your journal. Fill in the details below.
+                Follow the steps to log a new trade to your journal.
               </DialogDescription>
             </DialogHeader>
-            <AddTradeForm onSubmit={handleAddTrade} />
+            <AddTradeFlow onSubmit={handleAddTrade} />
           </DialogContent>
         </Dialog>
       </div>

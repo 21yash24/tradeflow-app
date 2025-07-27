@@ -18,10 +18,8 @@ import {
   BarChart3,
   BookOpenCheck,
   Newspaper,
-  ShieldCheck,
   Settings,
   Bell,
-  Search,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -79,14 +77,6 @@ export default function AppLayout({
                 <Link href="/economic-news">
                   <Newspaper />
                   <span>Economic News</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Discipline" isActive={isActive('/discipline')}>
-                <Link href="/discipline">
-                  <ShieldCheck />
-                  <span>Discipline</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
