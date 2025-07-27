@@ -216,6 +216,7 @@ export default function EconomicNewsPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
+                    <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/10">
@@ -298,6 +299,7 @@ export default function EconomicNewsPage() {
                             )))}
                         </TableBody>
                     </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

@@ -39,6 +39,7 @@ import { auth, db } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useEffect } from "react";
+import { motion } from "framer-motion";
 
 const navItems = [
     { href: "/journal", icon: BookOpenCheck, label: "Journal" },
@@ -65,7 +66,7 @@ function UserProfileDropdown() {
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={user?.photoURL || "https://placehold.co/100x100.png"} alt={user?.displayName || "User"} data-ai-hint="profile avatar" />
+                        <AvatarImage src={user?.photoURL || `https://placehold.co/100x100.png`} alt={user?.displayName || "User"} data-ai-hint="profile avatar" />
                         <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                 </Button>
@@ -183,10 +184,11 @@ function MobileBottomNav() {
 
     return (
          <div className="lg:hidden fixed bottom-0 left-0 z-50 w-full h-16 bg-card border-t border-border">
+            <TooltipProvider>
             <div className="grid h-full max-w-lg grid-cols-5 mx-auto font-medium">
                 {mainNavItems.map(item => (
-                    <TooltipProvider key={item.href}>
-                         <Tooltip>
+                    
+                         <Tooltip key={item.href}>
                             <TooltipTrigger asChild>
                                  <Link href={item.href} className={cn(
                                      "inline-flex flex-col items-center justify-center px-5 hover:bg-muted/50 group",
@@ -200,9 +202,10 @@ function MobileBottomNav() {
                                 <p>{item.label}</p>
                             </TooltipContent>
                         </Tooltip>
-                    </TooltipProvider>
+                   
                 ))}
             </div>
+             </TooltipProvider>
         </div>
     )
 }
@@ -215,6 +218,7 @@ export default function AppLayout({
 }>) {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -265,7 +269,14 @@ export default function AppLayout({
                  </Link>
                  <UserProfileDropdown />
              </div>
-            {children}
+              <motion.div
+                key={pathname}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+            >
+                {children}
+            </motion.div>
         </main>
         <MobileBottomNav />
     </div>

@@ -194,7 +194,7 @@ const PerformanceDashboard = () => {
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">
+                        <div className="text-xl sm:text-2xl font-bold">
                             <span className="text-accent">${analyticsData.avgWin.toFixed(2)}</span> / <span className="text-red-400">${analyticsData.avgLoss.toFixed(2)}</span>
                         </div>
                          <p className="text-xs text-muted-foreground">Average result per trade</p>
@@ -233,7 +233,7 @@ const PerformanceDashboard = () => {
                             <BarChart data={analyticsData.pnlByPairData} layout="vertical" margin={{ left: -10, right: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                 <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
-                                <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} width={80} />
                                 <Tooltip
                                     cursor={{fill: 'hsl(var(--muted))'}}
                                     contentStyle={{
@@ -550,7 +550,7 @@ export default function AnalyticsPage() {
             </div>
 
             <Tabs defaultValue="performance">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2">
                     <TabsTrigger value="performance">
                         <TrendingUp className="mr-2" />
                         Performance
