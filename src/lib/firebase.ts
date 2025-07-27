@@ -12,6 +12,7 @@ const firebaseConfig: FirebaseOptions = {
     apiKey: "AIzaSyA386i6FD9F4kK1FQTufnkGmi4BfA8HUto",
     authDomain: "tradeflow-3bzke.firebaseapp.com",
     messagingSenderId: "761646263499",
+    measurementId: "G-XXXXXXXXXX"
 };
 
 // Initialize Firebase for SSR
