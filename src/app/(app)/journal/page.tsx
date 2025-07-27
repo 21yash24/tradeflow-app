@@ -28,15 +28,15 @@ import { Separator } from "@/components/ui/separator";
 import { analyzeTrade, TradeAnalysis } from "@/ai/flows/trade-analyst-flow";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc, getDoc } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useToast } from "@/hooks/use-toast";
 
-const accountIdToName: Record<string, string> = {
-    "acc-1": "Primary Account ($10k)",
-    "acc-2": "Prop Firm Challenge ($100k)",
-    "acc-3": "Swing Account ($25k)"
-};
+type Account = {
+    id: string;
+    name: string;
+    balance: number;
+}
 
 function TradeAnalysisResult({ analysis }: { analysis: TradeAnalysis }) {
     return (
@@ -84,6 +84,7 @@ export default function JournalPage() {
   const [user] = useAuthState(auth);
   const { toast } = useToast();
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [accounts, setAccounts] = useState<Record<string, Account>>({});
   const [isAddTradeDialogOpen, setAddTradeDialogOpen] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [viewingTrade, setViewingTrade] = useState<Trade | null>(null);
@@ -93,17 +94,34 @@ export default function JournalPage() {
 
   useEffect(() => {
     if (user) {
-      const q = query(
+      // Fetch user's accounts
+      const accountsQuery = query(collection(db, "accounts"), where("userId", "==", user.uid));
+      const unsubAccounts = onSnapshot(accountsQuery, (snapshot) => {
+        const accountsData: Record<string, Account> = {};
+        snapshot.forEach(doc => {
+            accountsData[doc.id] = { ...doc.data(), id: doc.id } as Account;
+        });
+        setAccounts(accountsData);
+      });
+
+      // Fetch user's trades
+      const tradesQuery = query(
         collection(db, "trades"),
         where("userId", "==", user.uid),
         orderBy("date", "desc")
       );
-      const unsubscribe = onSnapshot(q, (snapshot) => {
+      const unsubTrades = onSnapshot(tradesQuery, (snapshot) => {
         const tradesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Trade[];
         setTrades(tradesData);
         setIsLoadingTrades(false);
       });
-      return () => unsubscribe();
+
+      return () => {
+        unsubAccounts();
+        unsubTrades();
+      };
+    } else {
+        setIsLoadingTrades(false);
     }
   }, [user]);
 
@@ -132,8 +150,10 @@ export default function JournalPage() {
   };
   
   const handleDeleteTrade = async (tradeId: string) => {
-    await deleteDoc(doc(db, "trades", tradeId));
-    handleCloseDetails();
+    if(window.confirm("Are you sure you want to delete this trade?")){
+        await deleteDoc(doc(db, "trades", tradeId));
+        handleCloseDetails();
+    }
   }
 
   const handleAnalyzeTrade = async () => {
@@ -212,7 +232,9 @@ export default function JournalPage() {
             <TableBody>
               {isLoadingTrades ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">Loading trades...</TableCell>
+                  <TableCell colSpan={7} className="text-center py-12">
+                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                  </TableCell>
                 </TableRow>
               ) : trades.length === 0 ? (
                 <TableRow>
@@ -289,7 +311,7 @@ export default function JournalPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div className="space-y-1">
                             <p className="text-muted-foreground">Account</p>
-                            <p className="font-medium">{accountIdToName[viewingTrade.accountId] || 'N/A'}</p>
+                            <p className="font-medium">{accounts[viewingTrade.accountId]?.name || 'N/A'}</p>
                         </div>
                         <div className="space-y-1">
                             <p className="text-muted-foreground">Setup</p>

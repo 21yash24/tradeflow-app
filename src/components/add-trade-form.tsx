@@ -36,8 +36,16 @@ import { Separator } from "./ui/separator";
 import Image from "next/image";
 import { auth, db } from "@/lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, collection, query, where } from "firebase/firestore";
 import type { ChecklistItem, UserProfile } from "@/services/user-service";
+
+type Account = {
+    id: string;
+    name: string;
+    balance: number;
+    userId: string;
+    createdAt: any;
+}
 
 const formSchema = z.object({
   accountId: z.string().min(1, "Account is required."),
@@ -149,10 +157,14 @@ function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
 
 function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [user] = useAuthState(auth);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      accountId: "acc-1",
+      accountId: "",
       pair: "",
       type: "buy",
       pnl: 0,
@@ -163,6 +175,24 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
       screenshot: ""
     },
   });
+
+   useEffect(() => {
+        if (user) {
+            const q = query(collection(db, "accounts"), where("userId", "==", user.uid));
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const accountsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Account[];
+                setAccounts(accountsData);
+                if (accountsData.length > 0 && !form.getValues("accountId")) {
+                    form.setValue("accountId", accountsData[0].id);
+                }
+                setIsLoadingAccounts(false);
+            });
+            return () => unsubscribe();
+        } else {
+             setIsLoadingAccounts(false);
+        }
+    }, [user, form]);
+
 
   const screenshotValue = form.watch("screenshot");
 
@@ -196,16 +226,16 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
             render={({ field }) => (
                 <FormItem>
                 <FormLabel>Account</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select an account" />
+                    <SelectTrigger disabled={isLoadingAccounts}>
+                        <SelectValue placeholder={isLoadingAccounts ? "Loading accounts..." : "Select an account"} />
                     </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                        <SelectItem value="acc-1">Primary Account ($10k)</SelectItem>
-                        <SelectItem value="acc-2">Prop Firm Challenge ($100k)</SelectItem>
-                        <SelectItem value="acc-3">Swing Account ($25k)</SelectItem>
+                        {accounts.map(acc => (
+                             <SelectItem key={acc.id} value={acc.id}>{acc.name} (${acc.balance.toLocaleString()})</SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
                 <FormMessage />

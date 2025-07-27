@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, Pie, PieChart, RadialBar, RadialBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -13,41 +13,176 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { useForm } from 'react-hook-form';
+import { useForm, useForm as useHookForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { backtestStrategy, type BacktestResult } from '@/ai/flows/backtester-flow';
-import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, addDoc, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
 import type { Trade } from '@/components/add-trade-form';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
+type Account = {
+    id: string;
+    name: string;
+    balance: number;
+    userId: string;
+    createdAt: any;
+}
 
-const accountIdToName: Record<string, string> = {
-    "acc-1": "Primary Account ($10k)",
-    "acc-2": "Prop Firm Challenge ($100k)",
-    "acc-3": "Swing Account ($25k)"
-};
+const accountFormSchema = z.object({
+    name: z.string().min(2, { message: "Account name must be at least 2 characters." }),
+    balance: z.coerce.number().positive({ message: "Starting balance must be a positive number." }),
+})
 
-// Mock data for accounts since we don't have an account management page yet
-const mockAccounts = [
-    { id: 'acc-1', name: 'Primary Account ($10k)' },
-    { id: 'acc-2', name: 'Prop Firm Challenge ($100k)' },
-    { id: 'acc-3', name: 'Swing Account ($25k)' },
-];
+const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Account[], onAccountCreated: () => void }) => {
+    const [user] = useAuthState(auth);
+    const { toast } = useToast();
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const form = useHookForm<z.infer<typeof accountFormSchema>>({
+        resolver: zodResolver(accountFormSchema),
+        defaultValues: { name: "", balance: 10000 },
+    });
+
+    const handleCreateAccount = async (values: z.infer<typeof accountFormSchema>) => {
+        if (!user) return;
+        setIsSubmitting(true);
+        try {
+            await addDoc(collection(db, "accounts"), {
+                ...values,
+                userId: user.uid,
+                createdAt: serverTimestamp(),
+            });
+            toast({ title: "Account Created!", description: `Account "${values.name}" has been added.` });
+            form.reset();
+            onAccountCreated();
+        } catch (error) {
+            console.error("Error creating account:", error);
+            toast({ title: "Error", description: "Could not create account.", variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+    
+    const handleDeleteAccount = async (accountId: string) => {
+        // Basic confirmation, in a real app you might want a more robust dialog
+        if (window.confirm("Are you sure you want to delete this account? This action cannot be undone.")) {
+            try {
+                await deleteDoc(doc(db, "accounts", accountId));
+                toast({ title: "Account Deleted", description: "The account has been removed." });
+            } catch (error) {
+                 console.error("Error deleting account:", error);
+                 toast({ title: "Error", description: "Could not delete account.", variant: "destructive" });
+            }
+        }
+    }
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button variant="outline"><Wallet className="mr-2 h-4 w-4"/> Manage Accounts</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Manage Trading Accounts</DialogTitle>
+                    <DialogDescription>Create new accounts or delete existing ones.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-lg">Existing Accounts</h3>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {accounts.length > 0 ? accounts.map(acc => (
+                            <div key={acc.id} className="flex justify-between items-center bg-muted p-2 rounded-md">
+                                <div>
+                                    <p className="font-medium">{acc.name}</p>
+                                    <p className="text-sm text-muted-foreground">Balance: ${acc.balance.toLocaleString()}</p>
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => handleDeleteAccount(acc.id)}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
+                        )) : (
+                            <p className="text-sm text-muted-foreground text-center py-4">No accounts found. Create one below.</p>
+                        )}
+                    </div>
+                    <Separator />
+                     <h3 className="font-semibold text-lg">Create New Account</h3>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(handleCreateAccount)} className="space-y-4">
+                             <FormField
+                                control={form.control}
+                                name="name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Label>Account Name</Label>
+                                        <FormControl>
+                                            <Input placeholder="e.g., Prop Firm Challenge" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name="balance"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Label>Starting Balance ($)</Label>
+                                        <FormControl>
+                                            <Input type="number" placeholder="100000" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <div className="flex justify-end">
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlusCircle className="mr-2 h-4 w-4" />}
+                                    Create Account
+                                </Button>
+                            </div>
+                        </form>
+                    </Form>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 const PerformanceDashboard = () => {
     const [user] = useAuthState(auth);
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [selectedAccount, setSelectedAccount] = useState('acc-1');
+    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
     const [trades, setTrades] = useState<Trade[]>([]);
-    const [isLoadingTrades, setIsLoadingTrades] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
 
      useEffect(() => {
         if (user) {
-            setIsLoadingTrades(true);
+            const q = query(collection(db, "accounts"), where("userId", "==", user.uid));
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const accountsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Account[];
+                setAccounts(accountsData);
+                if (!selectedAccount && accountsData.length > 0) {
+                    setSelectedAccount(accountsData[0].id);
+                }
+                 if(accountsData.length === 0) {
+                    setIsLoading(false);
+                }
+            });
+            return () => unsubscribe();
+        } else {
+             setIsLoading(false);
+        }
+    }, [user, selectedAccount]);
+
+     useEffect(() => {
+        if (user && selectedAccount) {
+            setIsLoading(true);
             const q = query(
                 collection(db, "trades"),
                 where("userId", "==", user.uid),
@@ -56,15 +191,18 @@ const PerformanceDashboard = () => {
             const unsubscribe = onSnapshot(q, (snapshot) => {
                 const tradesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Trade[];
                 setTrades(tradesData);
-                setIsLoadingTrades(false);
+                setIsLoading(false);
             });
             return () => unsubscribe();
+        } else if (!selectedAccount) {
+            setTrades([]);
+            setIsLoading(false);
         }
     }, [user, selectedAccount]);
 
 
      const analyticsData = useMemo(() => {
-        if (isLoadingTrades) {
+        if (isLoading) {
             return {
                  totalTrades: 0, winningTrades: 0, losingTrades: 0, winRate: 0, totalPnl: 0,
                  avgWin: 0, avgLoss: 0, profitFactor: 0, cumulativePnlData: [], pnlByPairData: [], tradesByDay: {}
@@ -117,7 +255,7 @@ const PerformanceDashboard = () => {
             avgWin, avgLoss, profitFactor, cumulativePnlData, pnlByPairData, tradesByDay
         };
 
-    }, [trades, isLoadingTrades]);
+    }, [trades, isLoading]);
     
     const firstDayOfMonth = startOfMonth(currentDate);
     const lastDayOfMonth = endOfMonth(currentDate);
@@ -130,7 +268,7 @@ const PerformanceDashboard = () => {
     const nextMonth = () => setCurrentDate(add(currentDate, { months: 1 }));
     const prevMonth = () => setCurrentDate(add(currentDate, { months: -1 }));
 
-    if (isLoadingTrades) {
+    if (isLoading) {
         return (
              <div className="flex flex-col items-center justify-center text-center gap-4 p-8 rounded-lg">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -143,17 +281,25 @@ const PerformanceDashboard = () => {
     return (
         <div className="space-y-6">
              <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+                {accounts.length > 0 && selectedAccount ? (
+                     <Select value={selectedAccount} onValueChange={(val) => setSelectedAccount(val)}>
                         <SelectTrigger className="w-full sm:w-[280px]">
                             <SelectValue placeholder="Select an account" />
                         </SelectTrigger>
                         <SelectContent>
-                            {mockAccounts.map(({ id, name }) => (
-                                <SelectItem key={id} value={id}>{name}</SelectItem>
+                            {accounts.map(({ id, name, balance }) => (
+                                <SelectItem key={id} value={id}>{name} (${balance.toLocaleString()})</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
+                ) : (
+                    <Card className="w-full text-center p-4 bg-muted/50">
+                        <p className="text-muted-foreground">No accounts found. Create one to start tracking.</p>
+                    </Card>
+                )}
+                 <ManageAccountsDialog accounts={accounts} onAccountCreated={() => {}}/>
                 </div>
+            
             {/* KPIs */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
@@ -559,8 +705,8 @@ export default function AnalyticsPage() {
                 </p>
             </div>
 
-            <Tabs defaultValue="performance">
-                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2">
+            <Tabs defaultValue="performance" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="performance">
                         <TrendingUp className="mr-2" />
                         Performance
@@ -580,5 +726,3 @@ export default function AnalyticsPage() {
         </div>
     );
 }
-
-    
