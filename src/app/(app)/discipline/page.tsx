@@ -47,41 +47,55 @@ const DisciplineTrackerPage = () => {
     const streakRef = user ? doc(db, 'streaks', user.uid) : null;
 
     useEffect(() => {
-        if (!user || !streakRef) return;
-        
-        const unsubscribe = onSnapshot(streakRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const streakData = docSnap.data();
-                const lastDate = streakData.lastCompletedDate ? new Date(streakData.lastCompletedDate) : new Date();
-                const today = new Date();
-                
-                // Reset streak if user missed a day
-                if (differenceInCalendarDays(today, lastDate) > 1) {
-                    setData(prev => ({...prev, streak: 0}));
-                } else {
-                    setData(prev => ({...prev, streak: streakData.streak || 0}));
-                }
-            }
-        });
-
-        return () => unsubscribe();
-
-    }, [user, streakRef]);
-
-    useEffect(() => {
-        if (!docRef) return;
-
-        const fetchData = async () => {
-            setIsLoading(true);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                const docData = docSnap.data() as Omit<DisciplineData, 'streak'>;
-                setData(prev => ({...prev, ...docData}));
-            }
+        if (!user) {
             setIsLoading(false);
+            return;
         }
+
+        let isSubscribed = true;
+        let unsubStreak: (() => void) | undefined;
+        let unsubDiscipline: (() => void) | undefined;
+
+        const fetchData = () => {
+             if (!streakRef || !docRef) return;
+             
+             unsubStreak = onSnapshot(streakRef, (docSnap) => {
+                if (!isSubscribed) return;
+                if (docSnap.exists()) {
+                    const streakData = docSnap.data();
+                    const lastDate = streakData.lastCompletedDate ? new Date(streakData.lastCompletedDate) : new Date();
+                    const today = new Date();
+                    
+                    if (differenceInCalendarDays(today, lastDate) > 1) {
+                        setData(prev => ({...prev, streak: 0}));
+                    } else {
+                        setData(prev => ({...prev, streak: streakData.streak || 0}));
+                    }
+                }
+             });
+
+            unsubDiscipline = onSnapshot(docRef, (docSnap) => {
+                if (!isSubscribed) return;
+                if (docSnap.exists()) {
+                     const docData = docSnap.data() as Omit<DisciplineData, 'streak'>;
+                     setData(prev => ({...prev, ...docData}));
+                }
+                setIsLoading(false);
+            }, (error) => {
+                 console.error("Error fetching discipline data:", error);
+                 setIsLoading(false);
+            });
+        };
+
         fetchData();
-    }, [docRef]);
+
+        return () => {
+            isSubscribed = false;
+            if (unsubStreak) unsubStreak();
+            if (unsubDiscipline) unsubDiscipline();
+        };
+
+    }, [user, streakRef, docRef]);
 
     const handleChecklistChange = (id: string, checked: boolean) => {
         setData(prev => ({
@@ -246,3 +260,5 @@ const DisciplineTrackerPage = () => {
 }
 
 export default DisciplineTrackerPage;
+
+    
