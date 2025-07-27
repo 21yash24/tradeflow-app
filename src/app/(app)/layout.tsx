@@ -66,7 +66,7 @@ function SidebarNav() {
             <div className="flex items-center gap-2 mb-8">
                 <TradeFlowLogo className="size-10 text-primary-foreground" />
                 <h1 className="text-2xl font-bold font-headline text-primary-foreground">
-                Traidr
+                TradeFlow
                 </h1>
             </div>
             <nav className="flex flex-col gap-2 flex-grow">
