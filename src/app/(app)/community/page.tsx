@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -75,7 +75,7 @@ const EditPostDialog = ({ post, isOpen, onOpenChange, onPostUpdated }: { post: P
 };
 
 
-const CommunityPost = ({ post, onPostDeleted, onPostUpdated }: { post: Post; onPostDeleted: () => void; onPostUpdated: () => void; }) => {
+const CommunityPost = React.memo(({ post, onPostDeleted, onPostUpdated }: { post: Post; onPostDeleted: (postId: string) => void; onPostUpdated: () => void; }) => {
     const [user] = useAuthState(auth);
     const { toast } = useToast();
     const postDate = post.createdAt?.toDate();
@@ -102,7 +102,7 @@ const CommunityPost = ({ post, onPostDeleted, onPostUpdated }: { post: Post; onP
             try {
                 await deleteDoc(doc(db, 'posts', post.id));
                 toast({ title: "Post Deleted", description: "Your post has been removed." });
-                onPostDeleted();
+                onPostDeleted(post.id);
             } catch (error) {
                 console.error("Error deleting post:", error);
                 toast({ title: "Error", description: "Failed to delete the post.", variant: "destructive" });
@@ -175,7 +175,9 @@ const CommunityPost = ({ post, onPostDeleted, onPostUpdated }: { post: Post; onP
             {isAuthor && <EditPostDialog post={post} isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} onPostUpdated={onPostUpdated} />}
          </>
     );
-};
+});
+CommunityPost.displayName = 'CommunityPost';
+
 
 const UserSearch = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -299,9 +301,14 @@ const CommunityPage = () => {
         }
     };
     
-    const onPostAction = () => {
-      // Dummy function to trigger re-render from child, since onSnapshot handles the state update
-    };
+    const onPostDeleted = useCallback((postId: string) => {
+      setPosts(prevPosts => prevPosts.filter(p => p.id !== postId));
+    }, []);
+
+    const onPostUpdated = useCallback(() => {
+      // The onSnapshot listener will automatically update the UI, 
+      // but we could force a re-fetch here if needed.
+    }, []);
 
 
   return (
@@ -347,7 +354,7 @@ const CommunityPage = () => {
                 </div>
             ) : (
                 posts.map((post) => (
-                    <CommunityPost key={post.id} post={post} onPostDeleted={onPostAction} onPostUpdated={onPostAction} />
+                    <CommunityPost key={post.id} post={post} onPostDeleted={onPostDeleted} onPostUpdated={onPostUpdated} />
                 ))
             )}
         </div>
@@ -356,3 +363,5 @@ const CommunityPage = () => {
 };
 
 export default CommunityPage;
+
+    

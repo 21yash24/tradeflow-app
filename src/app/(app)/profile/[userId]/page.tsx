@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -206,7 +206,7 @@ const UserStat = ({ value, label }: { value: string | number; label: string }) =
   </div>
 );
 
-const CommunityPost = ({ post, onPostDeleted, onPostUpdated }: { post: Post, onPostDeleted: () => void; onPostUpdated: () => void; }) => {
+const CommunityPost = React.memo(({ post, onPostDeleted, onPostUpdated }: { post: Post, onPostDeleted: (postId: string) => void; onPostUpdated: () => void; }) => {
     const postDate = post.createdAt?.toDate();
     const timeAgo = postDate ? formatDistanceToNow(postDate, { addSuffix: true }) : 'just now';
     const { toast } = useToast();
@@ -219,7 +219,7 @@ const CommunityPost = ({ post, onPostDeleted, onPostUpdated }: { post: Post, onP
             try {
                 await deleteDoc(doc(db, 'posts', post.id));
                 toast({ title: "Post Deleted", description: "Your post has been removed." });
-                onPostDeleted();
+                onPostDeleted(post.id);
             } catch (error) {
                 console.error("Error deleting post:", error);
                 toast({ title: "Error", description: "Failed to delete the post.", variant: "destructive" });
@@ -286,7 +286,9 @@ const CommunityPost = ({ post, onPostDeleted, onPostUpdated }: { post: Post, onP
         {isAuthor && <EditPostDialog post={post} isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} onPostUpdated={onPostUpdated} />}
         </>
     );
-};
+});
+CommunityPost.displayName = 'CommunityPost';
+
 
 const PostSkeleton = () => (
     <Card className="mb-4">
@@ -403,9 +405,13 @@ export default function UserProfilePage() {
         toast({ title: "Unfollowed", description: `You are no longer following ${profileUser?.displayName}.` });
     };
 
-    const onPostAction = () => {
-        // Dummy function to trigger re-render if needed, though onSnapshot should handle it.
-    };
+    const onPostDeleted = useCallback((postId: string) => {
+      setUserPosts(prevPosts => prevPosts.filter(p => p.id !== postId));
+    }, []);
+
+    const onPostUpdated = useCallback(() => {
+        // The onSnapshot listener will automatically update the UI
+    }, []);
 
     const isCurrentUserProfile = currentUser?.uid === userId;
 
@@ -466,7 +472,7 @@ export default function UserProfilePage() {
                     </div>
                 ) : (
                     userPosts.map(post => (
-                        <CommunityPost key={post.id} post={post} onPostDeleted={onPostAction} onPostUpdated={onPostAction} />
+                        <CommunityPost key={post.id} post={post} onPostDeleted={onPostDeleted} onPostUpdated={onPostUpdated} />
                     ))
                 )}
             </div>
@@ -482,3 +488,5 @@ export default function UserProfilePage() {
         </div>
     );
 }
+
+    
