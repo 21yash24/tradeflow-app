@@ -2,13 +2,18 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, CaseSensitive } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, Bot, BrainCircuit } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, getDay, isEqual, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 
 // Mock data simulating multiple trading accounts
 const tradingData: Record<string, { name: string; trades: any[] }> = {
@@ -50,12 +55,11 @@ const tradingData: Record<string, { name: string; trades: any[] }> = {
     }
 };
 
-
-export default function AnalyticsPage() {
+const PerformanceDashboard = () => {
     const [currentDate, setCurrentDate] = useState(new Date('2024-07-01'));
     const [selectedAccount, setSelectedAccount] = useState('acc-1');
 
-    const analyticsData = useMemo(() => {
+     const analyticsData = useMemo(() => {
         const trades = tradingData[selectedAccount].trades;
         const totalTrades = trades.length;
         const winningTrades = trades.filter(t => t.pnl > 0).length;
@@ -99,24 +103,12 @@ export default function AnalyticsPage() {
         }, {} as Record<string, { pnl: number, trades: number }>);
         
         return {
-            trades,
-            totalTrades,
-            winningTrades,
-            losingTrades,
-            winRate,
-            totalPnl,
-            totalWon,
-            totalLost,
-            avgWin,
-            avgLoss,
-            profitFactor,
-            cumulativePnlData,
-            pnlByPairData,
-            tradesByDay
+            totalTrades, winningTrades, losingTrades, winRate, totalPnl,
+            avgWin, avgLoss, profitFactor, cumulativePnlData, pnlByPairData, tradesByDay
         };
 
     }, [selectedAccount]);
-
+    
     const firstDayOfMonth = startOfMonth(currentDate);
     const lastDayOfMonth = endOfMonth(currentDate);
 
@@ -129,18 +121,8 @@ export default function AnalyticsPage() {
     const prevMonth = () => setCurrentDate(add(currentDate, { months: -1 }));
 
     return (
-        <div className="space-y-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight font-headline">
-                    Analytics Dashboard
-                    </h1>
-                    <p className="text-muted-foreground mt-2">
-                    An overview of your trading performance.
-                    </p>
-                </div>
-                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                     <CaseSensitive className="h-5 w-5 text-muted-foreground" />
+        <div className="space-y-6">
+             <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Select value={selectedAccount} onValueChange={setSelectedAccount}>
                         <SelectTrigger className="w-full sm:w-[280px]">
                             <SelectValue placeholder="Select an account" />
@@ -152,8 +134,6 @@ export default function AnalyticsPage() {
                         </SelectContent>
                     </Select>
                 </div>
-            </div>
-
             {/* KPIs */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
@@ -203,7 +183,6 @@ export default function AnalyticsPage() {
             </div>
             
             <div className="grid gap-8 lg:grid-cols-3">
-                {/* Cumulative P/L Chart */}
                 <Card className="lg:col-span-2">
                     <CardHeader>
                         <CardTitle>Cumulative P/L</CardTitle>
@@ -225,8 +204,6 @@ export default function AnalyticsPage() {
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
-
-                 {/* P/L by Pair Chart */}
                 <Card>
                     <CardHeader>
                         <CardTitle>P/L by Pair</CardTitle>
@@ -258,8 +235,6 @@ export default function AnalyticsPage() {
                     </CardContent>
                 </Card>
             </div>
-
-            {/* Calendar View */}
             <Card>
                 <CardHeader>
                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -320,5 +295,206 @@ export default function AnalyticsPage() {
                 </CardContent>
             </Card>
         </div>
+    )
+}
+
+const AiBacktester = () => {
+    // Placeholder state for backtest results
+    const [results, setResults] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleRunBacktest = (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        // Mock API call
+        setTimeout(() => {
+            setResults({
+                netPnl: 4520.30,
+                winRate: 62.5,
+                profitFactor: 2.1,
+                totalTrades: 80,
+                equityCurve: [
+                    { name: '1', value: 10000 }, { name: '10', value: 10500 }, { name: '20', value: 10200 },
+                    { name: '30', value: 11200 }, { name: '40', value: 11800 }, { name: '50', value: 12500 },
+                    { name: '60', value: 13500 }, { name: '70', value: 14000 }, { name: '80', value: 14520.30 },
+                ]
+            });
+            setIsLoading(false);
+        }, 2000);
+    }
+
+    return (
+        <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Configure Backtest</CardTitle>
+                    <CardDescription>Define a strategy in plain English and see how it would have performed.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleRunBacktest} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="strategy">Trading Strategy</Label>
+                            <Textarea id="strategy" placeholder="e.g., 'Buy when the 50 EMA crosses above the 200 EMA on the 4H chart. Sell when it crosses below.'" className="min-h-[100px]" />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="pair">Currency Pair</Label>
+                                <Select defaultValue="EUR/USD">
+                                    <SelectTrigger id="pair">
+                                        <SelectValue placeholder="Select pair" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="EUR/USD">EUR/USD</SelectItem>
+                                        <SelectItem value="GBP/JPY">GBP/JPY</SelectItem>
+                                        <SelectItem value="XAU/USD">XAU/USD</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="timeframe">Timeframe</Label>
+                                <Select defaultValue="4H">
+                                    <SelectTrigger id="timeframe">
+                                        <SelectValue placeholder="Select timeframe" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1H">1 Hour</SelectItem>
+                                        <SelectItem value="4H">4 Hours</SelectItem>
+                                        <SelectItem value="1D">Daily</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="period">Date Range</Label>
+                                 <Select defaultValue="1Y">
+                                    <SelectTrigger id="period">
+                                        <SelectValue placeholder="Select period" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="3M">Last 3 Months</SelectItem>
+                                        <SelectItem value="6M">Last 6 Months</SelectItem>
+                                        <SelectItem value="1Y">Last Year</SelectItem>
+                                        <SelectItem value="3Y">Last 3 Years</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="flex justify-end">
+                            <Button type="submit" disabled={isLoading}>
+                                {isLoading ? 'Running Backtest...' : 'Run Backtest'}
+                            </Button>
+                        </div>
+                    </form>
+                </CardContent>
+            </Card>
+
+            {isLoading && <p className="text-center text-muted-foreground">AI is analyzing historical data...</p>}
+
+            {results && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Backtest Results</CardTitle>
+                        <CardDescription>Summary of the strategy's performance over the selected period.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                            <Card className="bg-muted/50">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-sm font-medium">Net P/L</CardTitle>
+                                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className={cn("text-2xl font-bold", results.netPnl >= 0 ? 'text-accent' : 'text-red-400')}>
+                                         {results.netPnl >= 0 ? '+' : '-'}${Math.abs(results.netPnl).toFixed(2)}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                             <Card className="bg-muted/50">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
+                                    <Target className="h-4 w-4 text-muted-foreground" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">{results.winRate.toFixed(1)}%</div>
+                                </CardContent>
+                            </Card>
+                             <Card className="bg-muted/50">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-sm font-medium">Profit Factor</CardTitle>
+                                    <Scale className="h-4 w-4 text-muted-foreground" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">{results.profitFactor.toFixed(2)}</div>
+                                </CardContent>
+                            </Card>
+                              <Card className="bg-muted/50">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-sm font-medium">Total Trades</CardTitle>
+                                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">{results.totalTrades}</div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        <Separator />
+                        
+                        <div>
+                             <h4 className="font-semibold mb-4 text-center">Equity Curve</h4>
+                             <ResponsiveContainer width="100%" height={300}>
+                                <LineChart data={results.equityCurve}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} label={{ value: 'Trades', position: 'insideBottom', offset: -5 }} />
+                                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value/1000}k`} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: "hsl(var(--background))",
+                                            borderColor: "hsl(var(--border))"
+                                        }}
+                                    />
+                                    <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardContent>
+                 </Card>
+            )}
+        </div>
+    )
+}
+
+export default function AnalyticsPage() {
+    return (
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight font-headline">
+                Analytics Dashboard
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                An overview of your trading performance and strategy backtesting.
+                </p>
+            </div>
+
+            <Tabs defaultValue="performance">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="performance">
+                        <TrendingUp className="mr-2" />
+                        Performance
+                    </TabsTrigger>
+                    <TabsTrigger value="ai-backtester">
+                        <BrainCircuit className="mr-2" />
+                        AI Backtester
+                    </TabsTrigger>
+                </TabsList>
+                <TabsContent value="performance" className="mt-6">
+                   <PerformanceDashboard />
+                </TabsContent>
+                <TabsContent value="ai-backtester" className="mt-6">
+                    <AiBacktester />
+                </TabsContent>
+            </Tabs>
+        </div>
     );
 }
+
+    
