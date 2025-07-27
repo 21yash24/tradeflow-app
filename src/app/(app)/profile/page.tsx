@@ -17,7 +17,7 @@ import {
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, collectionGroup,getCountFromServer } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -104,25 +104,36 @@ export default function ProfilePage() {
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+  const [followers, setFollowers] = useState(0);
+  const [following, setFollowing] = useState(0);
 
   useEffect(() => {
     if (user) {
         setIsLoadingPosts(true);
-        const q = query(
+        const postsQuery = query(
             collection(db, "posts"),
             where("authorId", "==", user.uid),
             orderBy("createdAt", "desc")
         );
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const postsUnsub = onSnapshot(postsQuery, (snapshot) => {
             const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
             setUserPosts(postsData);
             setIsLoadingPosts(false);
         });
-        return () => unsubscribe();
+        
+        const followersQuery = collection(db, 'users', user.uid, 'followers');
+        const followingQuery = collection(db, 'users', user.uid, 'following');
+
+        const followersUnsub = onSnapshot(followersQuery, (snapshot) => setFollowers(snapshot.size));
+        const followingUnsub = onSnapshot(followingQuery, (snapshot) => setFollowing(snapshot.size));
+
+        return () => {
+            postsUnsub();
+            followersUnsub();
+            followingUnsub();
+        };
     }
   }, [user]);
-
-  const userHandle = user?.displayName?.toLowerCase().replace(/\s/g, '_') || 'user';
 
   return (
     <div className="space-y-6">
@@ -138,6 +149,8 @@ export default function ProfilePage() {
             <p className="text-muted-foreground mt-1">Your trading journey, one post at a time.</p>
             <div className="flex gap-6 sm:gap-8 my-4">
                 <UserStat value={userPosts.length} label="posts" />
+                <UserStat value={followers} label="followers" />
+                <UserStat value={following} label="following" />
             </div>
              <div className="flex gap-2 mt-4">
                 <Button asChild className="flex-1"><Link href="/settings">Edit Profile</Link></Button>
@@ -152,7 +165,7 @@ export default function ProfilePage() {
           <TabsTrigger value="saved"><Bookmark className="mr-2" /> Saved</TabsTrigger>
         </TabsList>
         <TabsContent value="posts">
-          <div>
+          <div className="pt-4">
             {isLoadingPosts ? (
                 <div className="space-y-4 pt-4">
                     <PostSkeleton />

@@ -6,12 +6,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Repeat, Loader2 } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Loader2, UserPlus, Search } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { followUser, type UserProfile } from '@/services/user-service';
+import Link from 'next/link';
+import { Input } from '@/components/ui/input';
 
 type Post = {
     id: string;
@@ -27,8 +30,24 @@ type Post = {
 };
 
 const CommunityPost = ({ post }: { post: Post }) => {
+    const [user] = useAuthState(auth);
+    const { toast } = useToast();
     const postDate = post.createdAt?.toDate();
     const timeAgo = postDate ? formatDistanceToNow(postDate, { addSuffix: true }) : 'just now';
+    
+    const handleFollow = async () => {
+        if (!user) {
+            toast({ title: "Please log in", description: "You must be logged in to follow users.", variant: "destructive" });
+            return;
+        }
+        try {
+            await followUser(user.uid, post.authorId);
+            toast({ title: "Success", description: `You are now following ${post.authorName}.` });
+        } catch (error) {
+            console.error("Error following user:", error);
+            toast({ title: "Error", description: "Could not follow user.", variant: "destructive" });
+        }
+    };
 
     return (
         <Card className="mb-4 hover:shadow-lg transition-shadow duration-300">
@@ -39,10 +58,15 @@ const CommunityPost = ({ post }: { post: Post }) => {
                         <AvatarFallback>{post.authorName?.substring(0, 2) || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="w-full">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-semibold">{post.authorName}</h4>
                             <span className="text-sm text-muted-foreground">@{post.authorHandle}</span>
                             <span className="text-sm text-muted-foreground">· {timeAgo}</span>
+                            {user && user.uid !== post.authorId && (
+                                <Button variant="outline" size="sm" className="ml-auto" onClick={handleFollow}>
+                                    <UserPlus className="mr-2" /> Follow
+                                </Button>
+                            )}
                         </div>
                         <p className="mt-2 text-foreground/90 whitespace-pre-wrap">{post.content}</p>
                         <div className="mt-4 flex justify-between items-center text-muted-foreground max-w-xs">
@@ -65,6 +89,70 @@ const CommunityPost = ({ post }: { post: Post }) => {
         </Card>
     );
 };
+
+const UserSearch = () => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [results, setResults] = useState<UserProfile[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+
+    useEffect(() => {
+        if (searchTerm.trim() === '') {
+            setResults([]);
+            return;
+        }
+
+        setIsSearching(true);
+        const q = query(
+            collection(db, "users"),
+            where("displayName", ">=", searchTerm),
+            where("displayName", "<=", searchTerm + '\uf8ff')
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const usersData = snapshot.docs.map(doc => doc.data() as UserProfile);
+            setResults(usersData);
+            setIsSearching(false);
+        });
+
+        return () => unsubscribe();
+    }, [searchTerm]);
+
+    return (
+        <div className="relative">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
+                <Input 
+                    placeholder="Search for other traders..."
+                    className="pl-10"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            {searchTerm && (
+                 <Card className="absolute top-full mt-2 w-full z-10">
+                     <CardContent className="p-2">
+                        {isSearching && <p className="p-4 text-center text-muted-foreground">Searching...</p>}
+                        {!isSearching && results.length === 0 && <p className="p-4 text-center text-muted-foreground">No users found.</p>}
+                        {results.map(user => (
+                            <Link href={`/profile/${user.uid}`} key={user.uid} className="block">
+                                <div className="flex items-center gap-3 p-2 rounded-md hover:bg-muted">
+                                    <Avatar>
+                                        <AvatarImage src={user.photoURL || `https://placehold.co/100x100.png`} data-ai-hint="profile avatar" />
+                                        <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold">{user.displayName}</p>
+                                        <p className="text-sm text-muted-foreground">@{user.displayName.toLowerCase().replace(/\s/g, '_')}</p>
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                     </CardContent>
+                 </Card>
+            )}
+        </div>
+    )
+}
 
 
 const CommunityPage = () => {
@@ -114,6 +202,9 @@ const CommunityPage = () => {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold font-headline">Community Hub</h1>
+        
+        <UserSearch />
+
         <Card>
             <CardContent className="p-4 space-y-4">
                 <div className="flex gap-4">

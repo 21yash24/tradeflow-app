@@ -14,7 +14,8 @@ import { useRouter } from "next/navigation";
 import { TradeFlowLogo } from "@/components/icons";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
 
 const formSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -40,7 +41,20 @@ export default function SignupPage() {
         setIsLoading(true);
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-            await updateProfile(userCredential.user, { displayName: values.username });
+            const user = userCredential.user;
+
+            await updateProfile(user, { displayName: values.username });
+            
+            // Create a user document in Firestore
+            await setDoc(doc(db, "users", user.uid), {
+                uid: user.uid,
+                displayName: values.username,
+                email: values.email,
+                photoURL: null,
+                bio: `I'm a new trader on TradeFlow!`,
+                createdAt: new Date(),
+            });
+
             toast({
                 title: "Account Created",
                 description: "Welcome to TradeFlow! We're glad to have you.",
