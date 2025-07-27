@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 export const metadata: Metadata = {
   title: 'TradeFlow',
   description: 'The ultimate trading journal and analysis tool.',
+  manifest: '/manifest.json',
   icons: null,
 };
 
