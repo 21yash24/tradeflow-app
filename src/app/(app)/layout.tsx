@@ -45,7 +45,6 @@ const navItems = [
     { href: "/discipline", icon: ClipboardCheck, label: "Discipline" },
     { href: "/community", icon: Users, label: "Community" },
     { href: "/economic-news", icon: Newspaper, label: "Economic News" },
-    { href: "/profile", icon: User, label: "Profile" },
 ];
 
 function UserProfileDropdown() {
@@ -57,6 +56,8 @@ function UserProfileDropdown() {
         await signOut(auth);
         router.push('/login');
     };
+
+    if (!user) return null;
 
     return (
         <DropdownMenu>
@@ -79,7 +80,7 @@ function UserProfileDropdown() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                     <Link href="/profile">
+                     <Link href={`/profile/${user.uid}`}>
                         <User className="mr-2 h-4 w-4" />
                         <span>Profile</span>
                     </Link>
@@ -111,7 +112,15 @@ function UserProfileDropdown() {
 
 function DesktopSidebar() {
     const pathname = usePathname();
-    const isActive = (path: string) => pathname.startsWith(path);
+    const { user } = useAuthState(auth);
+    const isActive = (path: string) => {
+        if (path === '/profile') {
+            return pathname.startsWith('/profile');
+        }
+        return pathname.startsWith(path);
+    }
+    
+    const profileLink = user ? `/profile/${user.uid}` : '/login';
 
     return (
         <aside className="hidden lg:flex flex-col w-64 bg-card p-4 rounded-r-xl shadow-lg fixed h-full">
@@ -125,8 +134,12 @@ function DesktopSidebar() {
                <UserProfileDropdown />
            </div>
            <nav className="flex flex-col gap-2 flex-grow">
-               {navItems.map(item => (
-                    <Link href={item.href} key={item.href}>
+               {[...navItems, { href: profileLink, icon: User, label: 'Profile'}].map(item => {
+                 // Special handling for the dynamic profile link
+                 const finalHref = item.label === 'Profile' ? profileLink : item.href;
+                 
+                 return (
+                    <Link href={finalHref} key={item.href}>
                        <div
                        className={cn(
                            "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
@@ -139,7 +152,8 @@ function DesktopSidebar() {
                            <span>{item.label}</span>
                        </div>
                    </Link>
-               ))}
+               )}
+            )}
            </nav>
            <div className="mt-auto">
                 <Link href="/settings">

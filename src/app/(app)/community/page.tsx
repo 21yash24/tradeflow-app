@@ -53,18 +53,20 @@ const CommunityPost = ({ post }: { post: Post }) => {
         <Card className="mb-4 hover:shadow-lg transition-shadow duration-300">
             <CardContent className="p-4">
                 <div className="flex items-start gap-4">
-                    <Avatar>
-                        <AvatarImage src={post.authorAvatar || `https://placehold.co/100x100.png`} data-ai-hint="profile avatar" />
-                        <AvatarFallback>{post.authorName?.substring(0, 2) || 'U'}</AvatarFallback>
-                    </Avatar>
+                    <Link href={`/profile/${post.authorId}`}>
+                        <Avatar>
+                            <AvatarImage src={post.authorAvatar || `https://placehold.co/100x100.png`} data-ai-hint="profile avatar" />
+                            <AvatarFallback>{post.authorName?.substring(0, 2) || 'U'}</AvatarFallback>
+                        </Avatar>
+                    </Link>
                     <div className="w-full">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-semibold">{post.authorName}</h4>
+                            <Link href={`/profile/${post.authorId}`} className="font-semibold hover:underline">{post.authorName}</Link>
                             <span className="text-sm text-muted-foreground">@{post.authorHandle}</span>
                             <span className="text-sm text-muted-foreground">· {timeAgo}</span>
                             {user && user.uid !== post.authorId && (
                                 <Button variant="outline" size="sm" className="ml-auto" onClick={handleFollow}>
-                                    <UserPlus className="mr-2" /> Follow
+                                    <UserPlus className="mr-1 h-4 w-4" /> Follow
                                 </Button>
                             )}
                         </div>
@@ -134,7 +136,7 @@ const UserSearch = () => {
                         {isSearching && <p className="p-4 text-center text-muted-foreground">Searching...</p>}
                         {!isSearching && results.length === 0 && <p className="p-4 text-center text-muted-foreground">No users found.</p>}
                         {results.map(user => (
-                            <Link href={`/profile/${user.uid}`} key={user.uid} className="block">
+                            <Link href={`/profile/${user.uid}`} key={user.uid} className="block" onClick={() => setSearchTerm('')}>
                                 <div className="flex items-center gap-3 p-2 rounded-md hover:bg-muted">
                                     <Avatar>
                                         <AvatarImage src={user.photoURL || `https://placehold.co/100x100.png`} data-ai-hint="profile avatar" />
@@ -168,7 +170,7 @@ const CommunityPage = () => {
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
             setPosts(postsData);
-            setIsLoadingPosts(false);
+setIsLoadingPosts(false);
         });
         return () => unsubscribe();
     }, []);
