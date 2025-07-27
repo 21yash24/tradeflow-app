@@ -8,7 +8,6 @@ import {
   Newspaper,
   Settings,
   Users,
-  PanelLeft,
   Moon,
   Sun,
   LogOut,
@@ -29,14 +28,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet"
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -48,6 +39,7 @@ const navItems = [
     { href: "/analytics", icon: BarChart3, label: "Analytics" },
     { href: "/community", icon: Users, label: "Community" },
     { href: "/economic-news", icon: Newspaper, label: "Economic News" },
+    { href: "/profile", icon: User, label: "Profile" },
 ];
 
 function UserProfileDropdown() {
@@ -73,6 +65,12 @@ function UserProfileDropdown() {
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                     <Link href="/profile">
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Profile</span>
+                    </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                      <Link href="/settings">
                         <Settings className="mr-2 h-4 w-4" />
@@ -100,7 +98,7 @@ function UserProfileDropdown() {
 
 function DesktopSidebar() {
     const pathname = usePathname();
-    const isActive = (path: string) => pathname === path;
+    const isActive = (path: string) => pathname.startsWith(path);
 
     return (
         <aside className="hidden lg:flex flex-col w-64 bg-card p-4 rounded-r-xl shadow-lg fixed h-full">
@@ -151,8 +149,7 @@ function DesktopSidebar() {
 
 function MobileBottomNav() {
     const pathname = usePathname();
-    const isActive = (path: string) => pathname === path;
-    const { setTheme, theme } = useTheme();
+    const isActive = (path: string) => pathname.startsWith(path);
 
     return (
          <div className="lg:hidden fixed bottom-0 left-0 z-50 w-full h-16 bg-card border-t border-border">
@@ -175,47 +172,6 @@ function MobileBottomNav() {
                         </Tooltip>
                     </TooltipProvider>
                 ))}
-                 <Sheet>
-                    <SheetTrigger asChild>
-                         <button type="button" className="inline-flex flex-col items-center justify-center px-5 hover:bg-muted/50 group text-muted-foreground">
-                            <PanelLeft className="w-6 h-6 mb-1" />
-                            <span className="sr-only">More</span>
-                        </button>
-                    </SheetTrigger>
-                    <SheetContent side="bottom" className="h-auto pb-6">
-                        <SheetHeader className="p-4 pt-2 text-left">
-                          <SheetTitle>Menu</SheetTitle>
-                          <SheetDescription>
-                            Access additional app settings and options.
-                          </SheetDescription>
-                        </SheetHeader>
-                         <nav className="flex flex-col gap-2 mt-2 px-2">
-                             <Link href="/settings" className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground">
-                                <Settings className="w-5 h-5" />
-                                <span>Settings</span>
-                            </Link>
-                             <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-muted-foreground" >
-                                <div className="flex items-center gap-3">
-                                    <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                                    <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                                    <span>Toggle Theme</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                     <Button size="sm" variant={theme === 'light' ? 'secondary' : 'ghost'} onClick={() => setTheme('light')}>Light</Button>
-                                     <Button size="sm" variant={theme === 'dark' ? 'secondary' : 'ghost'} onClick={() => setTheme('dark')}>Dark</Button>
-                                </div>
-                            </div>
-                             <Link href="/profile" className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground">
-                                <User className="w-5 h-5" />
-                                <span>Profile</span>
-                            </Link>
-                             <Link href="/logout" className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground">
-                                <LogOut className="w-5 h-5" />
-                                <span>Logout</span>
-                            </Link>
-                        </nav>
-                    </SheetContent>
-                </Sheet>
             </div>
         </div>
     )
@@ -231,7 +187,13 @@ export default function AppLayout({
     <div className="flex min-h-screen bg-background">
         <DesktopSidebar />
         <main className="flex-1 lg:ml-64 p-4 md:p-6 lg:p-8 pb-20 lg:pb-8 overflow-auto">
-             <div className="lg:hidden flex justify-end mb-4">
+             <div className="lg:hidden flex justify-between items-center mb-4">
+                 <Link href="/" className="flex items-center gap-2">
+                    <TradeFlowLogo className="size-7 text-primary" />
+                     <h1 className="text-lg font-bold font-headline text-foreground">
+                        TradeFlow
+                    </h1>
+                 </Link>
                  <UserProfileDropdown />
              </div>
             {children}
