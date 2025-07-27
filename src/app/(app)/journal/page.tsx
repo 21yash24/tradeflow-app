@@ -113,10 +113,8 @@ export default function JournalPage() {
             ...newTrade,
             userId: user.uid,
         };
-        console.log("Attempting to save trade to Firestore:", newTradeWithUser);
         try {
             await addDoc(collection(db, "trades"), newTradeWithUser);
-            console.log("Trade saved successfully!");
             toast({
                 title: "Trade Logged",
                 description: "Your trade has been successfully saved to your journal.",
@@ -125,7 +123,7 @@ export default function JournalPage() {
             console.error("Error saving trade to Firestore:", error);
             toast({
                 title: "Error",
-                description: "There was a problem saving your trade. Please check the console for details.",
+                description: "There was a problem saving your trade. Please try again.",
                 variant: "destructive",
             });
         }
@@ -367,5 +365,3 @@ export default function JournalPage() {
     </div>
   );
 }
-
-    
