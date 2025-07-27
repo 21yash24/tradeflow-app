@@ -38,6 +38,10 @@ export default function LoginPage() {
         setIsLoading(true);
         try {
             await signInWithEmailAndPassword(auth, values.email, values.password);
+            toast({
+                title: "Login Successful",
+                description: "Welcome back! Redirecting you to your journal...",
+            });
             router.push('/journal');
         } catch (error: any) {
             toast({

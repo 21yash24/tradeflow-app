@@ -41,6 +41,10 @@ export default function SignupPage() {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
             await updateProfile(userCredential.user, { displayName: values.username });
+            toast({
+                title: "Account Created",
+                description: "Welcome to TradeFlow! We're glad to have you.",
+            });
             router.push('/journal');
         } catch (error: any) {
              toast({
