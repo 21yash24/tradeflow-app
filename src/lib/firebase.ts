@@ -6,12 +6,12 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-    projectId: "tradeflow-3bzke",
-    appId: "1:761646263499:web:89fc8d489b1f11987eff4e",
-    storageBucket: "tradeflow-3bzke.firebasestorage.app",
-    apiKey: "AIzaSyA386i6FD9F4kK1FQTufnkGmi4BfA8HUto",
-    authDomain: "tradeflow-3bzke.firebaseapp.com",
-    messagingSenderId: "761646263499",
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
 };
 
 // Initialize Firebase
