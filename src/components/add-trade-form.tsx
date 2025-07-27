@@ -140,8 +140,8 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     onSubmit({
-        ...values,
-        date: format(values.date, 'yyyy-MM-dd') as any
+      ...values,
+      date: format(values.date, 'yyyy-MM-dd') as any,
     });
     form.reset();
   };
