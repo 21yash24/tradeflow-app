@@ -11,11 +11,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 
 
 export default function SettingsPage() {
     const { toast } = useToast();
     const { theme, setTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,26 +53,28 @@ export default function SettingsPage() {
                             Select a theme. Your preference will be saved for your next visit.
                         </p>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-                        <Button
-                            type="button"
-                            variant={theme === 'light' ? 'default' : 'outline'}
-                            onClick={() => setTheme('light')}
-                            className="h-24 flex flex-col"
-                        >
-                            <Sun className="h-6 w-6 mb-2" />
-                            Light
-                        </Button>
-                        <Button
-                            type="button"
-                            variant={theme === 'dark' ? 'default' : 'outline'}
-                            onClick={() => setTheme('dark')}
-                            className="h-24 flex flex-col"
-                        >
-                            <Moon className="h-6 w-6 mb-2" />
-                            Dark
-                        </Button>
-                    </div>
+                    {mounted && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                            <Button
+                                type="button"
+                                variant={theme === 'light' ? 'default' : 'outline'}
+                                onClick={() => setTheme('light')}
+                                className="h-24 flex flex-col"
+                            >
+                                <Sun className="h-6 w-6 mb-2" />
+                                Light
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={theme === 'dark' ? 'default' : 'outline'}
+                                onClick={() => setTheme('dark')}
+                                className="h-24 flex flex-col"
+                            >
+                                <Moon className="h-6 w-6 mb-2" />
+                                Dark
+                            </Button>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
