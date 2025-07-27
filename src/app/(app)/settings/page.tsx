@@ -13,7 +13,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { type UserProfile, type ChecklistItem } from "@/services/user-service";
 import { Loader2, Upload, Trash2, PlusCircle } from "lucide-react";
-import { updateProfile as updateAuthProfile } from "firebase/auth";
+import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const defaultPreTradeChecklist: ChecklistItem[] = [
@@ -142,7 +142,7 @@ export default function SettingsPage() {
             await updateDoc(userDocRef, firestoreDataToUpdate);
 
             if (profile.displayName !== auth.currentUser.displayName) {
-                 await updateAuthProfile(auth.currentUser, {
+                 await updateProfile(auth.currentUser, {
                     displayName: profile.displayName,
                  });
             }
