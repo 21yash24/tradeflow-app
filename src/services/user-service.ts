@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, doc, getDoc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import { z } from 'zod';
 
 const UserProfileSchema = z.object({
@@ -32,7 +32,7 @@ export async function followUser(currentUserId: string, targetUserId: string) {
 }
 
 
-export async function unfollowUser(currentUserId: string, targetUserId: string) {
+export async function unfollowUser(currentUserId: string, targetUserId:string) {
      const batch = writeBatch(db);
 
     const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
