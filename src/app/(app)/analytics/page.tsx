@@ -1,72 +1,119 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, Percent } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, CaseSensitive } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, getDay, isEqual, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// Mock data simulating trades
-const trades = [
-  { date: '2024-07-01', pnl: -221.71, trades: 2, pair: 'EUR/USD' },
-  { date: '2024-07-02', pnl: 271.30, trades: 5, pair: 'GBP/JPY' },
-  { date: '2024-07-03', pnl: 150.00, trades: 1, pair: 'EUR/USD' },
-  { date: '2024-07-08', pnl: -50.25, trades: 1, pair: 'AUD/CAD' },
-  { date: '2024-07-10', pnl: 591.58, trades: 4, pair: 'EUR/USD' },
-  { date: '2024-07-14', pnl: 316.28, trades: 3, pair: 'USD/CHF' },
-  { date: '2024-07-16', pnl: -225.46, trades: 2, pair: 'GBP/JPY' },
-  { date: '2024-07-17', pnl: 444.54, trades: 2, pair: 'EUR/USD' },
-  { date: '2024-07-21', pnl: 6.81, trades: 2, pair: 'AUD/CAD' },
-  { date: '2024-07-22', pnl: 0.78, trades: 1, pair: 'USD/CHF' },
-  { date: '2024-07-23', pnl: 549.04, trades: 3, pair: 'GBP/JPY' },
-  { date: '2024-07-29', pnl: -120.90, trades: 2, pair: 'EUR/USD' },
-];
-
-const tradesByDay = trades.reduce((acc, trade) => {
-    if (!acc[trade.date]) {
-        acc[trade.date] = { pnl: 0, trades: 0 };
+// Mock data simulating multiple trading accounts
+const tradingData: Record<string, { name: string; trades: any[] }> = {
+    'acc-1': {
+        name: 'Primary Account ($10k)',
+        trades: [
+          { date: '2024-07-01', pnl: -221.71, trades: 2, pair: 'EUR/USD' },
+          { date: '2024-07-02', pnl: 271.30, trades: 5, pair: 'GBP/JPY' },
+          { date: '2024-07-03', pnl: 150.00, trades: 1, pair: 'EUR/USD' },
+          { date: '2024-07-08', pnl: -50.25, trades: 1, pair: 'AUD/CAD' },
+          { date: '2024-07-10', pnl: 591.58, trades: 4, pair: 'EUR/USD' },
+          { date: '2024-07-14', pnl: 316.28, trades: 3, pair: 'USD/CHF' },
+          { date: '2024-07-16', pnl: -225.46, trades: 2, pair: 'GBP/JPY' },
+          { date: '2024-07-17', pnl: 444.54, trades: 2, pair: 'EUR/USD' },
+          { date: '2024-07-21', pnl: 6.81, trades: 2, pair: 'AUD/CAD' },
+          { date: '2024-07-22', pnl: 0.78, trades: 1, pair: 'USD/CHF' },
+          { date: '2024-07-23', pnl: 549.04, trades: 3, pair: 'GBP/JPY' },
+          { date: '2024-07-29', pnl: -120.90, trades: 2, pair: 'EUR/USD' },
+        ]
+    },
+    'acc-2': {
+        name: 'Prop Firm Challenge ($100k)',
+        trades: [
+            { date: '2024-07-01', pnl: 1050.50, trades: 1, pair: 'XAU/USD' },
+            { date: '2024-07-03', pnl: -550.00, trades: 1, pair: 'US30' },
+            { date: '2024-07-05', pnl: 2300.75, trades: 2, pair: 'XAU/USD' },
+            { date: '2024-07-09', pnl: -800.25, trades: 3, pair: 'NAS100' },
+            { date: '2024-07-11', pnl: 3100.00, trades: 1, pair: 'XAU/USD' },
+            { date: '2024-07-15', pnl: -1200.00, trades: 2, pair: 'US30' },
+        ]
+    },
+    'acc-3': {
+        name: 'Swing Account ($25k)',
+        trades: [
+             { date: '2024-06-10', pnl: 850.00, trades: 1, pair: 'USD/JPY' },
+             { date: '2024-06-20', pnl: -300.00, trades: 1, pair: 'EUR/AUD' },
+             { date: '2024-07-05', pnl: 1250.00, trades: 1, pair: 'GBP/USD' },
+        ]
     }
-    acc[trade.date].pnl += trade.pnl;
-    acc[trade.date].trades += trade.trades;
-    return acc;
-}, {} as Record<string, { pnl: number, trades: number }>);
-
-// --- Analytics Calculations ---
-const totalTrades = trades.length;
-const winningTrades = trades.filter(t => t.pnl > 0).length;
-const losingTrades = trades.filter(t => t.pnl <= 0).length;
-const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
-const totalPnl = trades.reduce((sum, t) => sum + t.pnl, 0);
-const totalWon = trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
-const totalLost = trades.filter(t => t.pnl <= 0).reduce((sum, t) => Math.abs(sum + t.pnl), 0);
-const avgWin = winningTrades > 0 ? totalWon / winningTrades : 0;
-const avgLoss = losingTrades > 0 ? totalLost / losingTrades : 0;
-const profitFactor = totalLost > 0 ? totalWon / totalLost : 0;
-
-const cumulativePnlData = trades
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .reduce((acc, trade, index) => {
-        const cumulativePnl = (acc[index - 1]?.cumulativePnl || 0) + trade.pnl;
-        acc.push({ name: `Trade ${index + 1}`, cumulativePnl: parseFloat(cumulativePnl.toFixed(2)) });
-        return acc;
-    }, [] as { name: string; cumulativePnl: number }[]);
-
-const pnlByPair = trades.reduce((acc, trade) => {
-    if (!acc[trade.pair]) {
-        acc[trade.pair] = { name: trade.pair, value: 0 };
-    }
-    acc[trade.pair].value += trade.pnl;
-    return acc;
-}, {} as Record<string, { name: string, value: number }>);
-
-const pnlByPairData = Object.values(pnlByPair).map(d => ({...d, value: parseFloat(d.value.toFixed(2))}));
+};
 
 
 export default function AnalyticsPage() {
     const [currentDate, setCurrentDate] = useState(new Date('2024-07-01'));
+    const [selectedAccount, setSelectedAccount] = useState('acc-1');
+
+    const analyticsData = useMemo(() => {
+        const trades = tradingData[selectedAccount].trades;
+        const totalTrades = trades.length;
+        const winningTrades = trades.filter(t => t.pnl > 0).length;
+        const losingTrades = trades.filter(t => t.pnl <= 0).length;
+        const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
+        const totalPnl = trades.reduce((sum, t) => sum + t.pnl, 0);
+        const totalWon = trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
+        const totalLost = trades.filter(t => t.pnl <= 0).reduce((sum, t) => Math.abs(sum + t.pnl), 0);
+        const avgWin = winningTrades > 0 ? totalWon / winningTrades : 0;
+        const avgLoss = losingTrades > 0 ? totalLost / losingTrades : 0;
+        const profitFactor = totalLost > 0 ? totalWon / totalLost : 0;
+
+        const cumulativePnlData = trades
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .reduce((acc, trade, index) => {
+                const cumulativePnl = (acc[index - 1]?.cumulativePnl || 0) + trade.pnl;
+                acc.push({ name: `Trade ${index + 1}`, cumulativePnl: parseFloat(cumulativePnl.toFixed(2)) });
+                return acc;
+            }, [] as { name: string; cumulativePnl: number }[]);
+
+        const pnlByPair = trades.reduce((acc, trade) => {
+            if (!acc[trade.pair]) {
+                acc[trade.pair] = { name: trade.pair, value: 0 };
+            }
+            acc[trade.pair].value += trade.pnl;
+            return acc;
+        }, {} as Record<string, { name: string, value: number }>);
+        
+        const pnlByPairData = Object.values(pnlByPair).map(d => ({...d, value: parseFloat(d.value.toFixed(2))}));
+
+        const tradesByDay = trades.reduce((acc, trade) => {
+            const dateKey = format(parseISO(trade.date), 'yyyy-MM-dd');
+            if (!acc[dateKey]) {
+                acc[dateKey] = { pnl: 0, trades: 0 };
+            }
+            acc[dateKey].pnl += trade.pnl;
+            acc[dateKey].trades += trade.trades;
+            return acc;
+        }, {} as Record<string, { pnl: number, trades: number }>);
+        
+        return {
+            trades,
+            totalTrades,
+            winningTrades,
+            losingTrades,
+            winRate,
+            totalPnl,
+            totalWon,
+            totalLost,
+            avgWin,
+            avgLoss,
+            profitFactor,
+            cumulativePnlData,
+            pnlByPairData,
+            tradesByDay
+        };
+
+    }, [selectedAccount]);
 
     const firstDayOfMonth = startOfMonth(currentDate);
     const lastDayOfMonth = endOfMonth(currentDate);
@@ -76,47 +123,33 @@ export default function AnalyticsPage() {
         end: endOfWeek(lastDayOfMonth),
     });
 
-    const getWeekNumber = (date: Date) => {
-        return Math.ceil(date.getDate() / 7);
-    }
-    
-    const weeklyData = Array.from({ length: 6 }).map((_, weekIndex) => {
-        const start = add(startOfWeek(firstDayOfMonth), { weeks: weekIndex });
-        if (!isSameMonth(start, firstDayOfMonth) && weekIndex > 0) return null;
-
-        const end = endOfWeek(start);
-        const weekTrades = trades.filter(t => {
-            const tradeDate = parseISO(t.date);
-            return tradeDate >= start && tradeDate <= end && isSameMonth(tradeDate, firstDayOfMonth);
-        });
-        
-        const pnl = weekTrades.reduce((sum, trade) => sum + trade.pnl, 0);
-        const count = weekTrades.reduce((sum, trade) => sum + trade.trades, 0);
-
-        if (count === 0 && !isSameMonth(start, firstDayOfMonth)) return null;
-
-        return {
-            week: getWeekNumber(add(start, {days: 3})), // get week number from a mid-week day
-            pnl,
-            count
-        };
-    }).filter(Boolean);
-
-
-    const monthlyPnl = trades.filter(t => isSameMonth(parseISO(t.date), currentDate)).reduce((sum, day) => sum + day.pnl, 0);
-
     const nextMonth = () => setCurrentDate(add(currentDate, { months: 1 }));
     const prevMonth = () => setCurrentDate(add(currentDate, { months: -1 }));
 
     return (
         <div className="space-y-8">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight font-headline">
-                Analytics Dashboard
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                An overview of your trading performance.
-                </p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                 <div>
+                    <h1 className="text-3xl font-bold tracking-tight font-headline">
+                    Analytics Dashboard
+                    </h1>
+                    <p className="text-muted-foreground mt-2">
+                    An overview of your trading performance.
+                    </p>
+                </div>
+                 <div className="flex items-center gap-2 w-full sm:w-auto">
+                     <CaseSensitive className="h-5 w-5 text-muted-foreground" />
+                    <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+                        <SelectTrigger className="w-full sm:w-[280px]">
+                            <SelectValue placeholder="Select an account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {Object.entries(tradingData).map(([id, { name }]) => (
+                                <SelectItem key={id} value={id}>{name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
             {/* KPIs */}
@@ -127,8 +160,8 @@ export default function AnalyticsPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className={cn("text-2xl font-bold", totalPnl >= 0 ? 'text-accent' : 'text-red-400')}>
-                            {totalPnl >= 0 ? '+' : '-'}${Math.abs(totalPnl).toFixed(2)}
+                        <div className={cn("text-2xl font-bold", analyticsData.totalPnl >= 0 ? 'text-accent' : 'text-red-400')}>
+                            {analyticsData.totalPnl >= 0 ? '+' : '-'}${Math.abs(analyticsData.totalPnl).toFixed(2)}
                         </div>
                         <p className="text-xs text-muted-foreground">Total profit and loss</p>
                     </CardContent>
@@ -139,8 +172,8 @@ export default function AnalyticsPage() {
                         <Target className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{winRate.toFixed(1)}%</div>
-                        <p className="text-xs text-muted-foreground">{winningTrades} wins / {losingTrades} losses</p>
+                        <div className="text-2xl font-bold">{analyticsData.winRate.toFixed(1)}%</div>
+                        <p className="text-xs text-muted-foreground">{analyticsData.winningTrades} wins / {analyticsData.losingTrades} losses</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -149,7 +182,7 @@ export default function AnalyticsPage() {
                         <Scale className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{profitFactor.toFixed(2)}</div>
+                        <div className="text-2xl font-bold">{analyticsData.profitFactor.toFixed(2)}</div>
                         <p className="text-xs text-muted-foreground">Gross profit / gross loss</p>
                     </CardContent>
                 </Card>
@@ -160,7 +193,7 @@ export default function AnalyticsPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            <span className="text-accent">${avgWin.toFixed(2)}</span> / <span className="text-red-400">${avgLoss.toFixed(2)}</span>
+                            <span className="text-accent">${analyticsData.avgWin.toFixed(2)}</span> / <span className="text-red-400">${analyticsData.avgLoss.toFixed(2)}</span>
                         </div>
                          <p className="text-xs text-muted-foreground">Average result per trade</p>
                     </CardContent>
@@ -175,7 +208,7 @@ export default function AnalyticsPage() {
                     </CardHeader>
                     <CardContent className="pl-2">
                         <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={cumulativePnlData}>
+                            <LineChart data={analyticsData.cumulativePnlData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
                                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
@@ -205,7 +238,7 @@ export default function AnalyticsPage() {
                                         borderColor: "hsl(var(--border))"
                                     }}
                                 />
-                                <Pie data={pnlByPairData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} fill="hsl(var(--accent))" label={(entry) => entry.name}>
+                                <Pie data={analyticsData.pnlByPairData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} fill="hsl(var(--accent))" label={(entry) => entry.name}>
                                 </Pie>
                             </PieChart>
                         </ResponsiveContainer>
@@ -240,7 +273,7 @@ export default function AnalyticsPage() {
                     <div className="grid grid-cols-7 grid-rows-6">
                        {daysInMonth.map((day, index) => {
                            const dayStr = format(day, 'yyyy-MM-dd');
-                           const data = tradesByDay[dayStr];
+                           const data = analyticsData.tradesByDay[dayStr];
                            const isCurrentMonth = isSameMonth(day, currentDate);
                            
                            return (
