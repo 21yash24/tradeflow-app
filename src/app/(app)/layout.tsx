@@ -37,9 +37,10 @@ import {
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { useEffect } from "react";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import type { UserProfile } from "@/services/user-service";
 
 const navItems = [
     { href: "/journal", icon: BookOpenCheck, label: "Journal" },
@@ -52,7 +53,20 @@ const navItems = [
 function UserProfileDropdown() {
     const { setTheme } = useTheme();
     const [user] = useAuthState(auth);
+    const [profile, setProfile] = useState<UserProfile | null>(null);
     const router = useRouter();
+
+     useEffect(() => {
+        if (user) {
+            const userDocRef = doc(db, 'users', user.uid);
+            const unsubscribe = onSnapshot(userDocRef, (doc) => {
+                if (doc.exists()) {
+                    setProfile(doc.data() as UserProfile);
+                }
+            });
+            return () => unsubscribe();
+        }
+    }, [user]);
 
     const handleLogout = async () => {
         await signOut(auth);
@@ -66,7 +80,7 @@ function UserProfileDropdown() {
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={user?.photoURL || `https://placehold.co/100x100.png`} alt={user?.displayName || "User"} data-ai-hint="profile avatar" />
+                        <AvatarImage src={profile?.photoURL || `https://placehold.co/100x100.png`} alt={user?.displayName || "User"} data-ai-hint="profile avatar" />
                         <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                 </Button>
