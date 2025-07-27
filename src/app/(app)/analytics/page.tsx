@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2 } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
@@ -162,7 +162,7 @@ const PerformanceDashboard = () => {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className={cn("text-2xl font-bold", analyticsData.totalPnl >= 0 ? 'text-accent' : 'text-red-400')}>
+                        <div className={cn("text-2xl font-bold", analyticsData.totalPnl >= 0 ? 'text-green-500' : 'text-red-500')}>
                             {analyticsData.totalPnl >= 0 ? '+' : '-'}${Math.abs(analyticsData.totalPnl).toFixed(2)}
                         </div>
                         <p className="text-xs text-muted-foreground">Total profit and loss</p>
@@ -195,7 +195,7 @@ const PerformanceDashboard = () => {
                     </CardHeader>
                     <CardContent>
                         <div className="text-xl sm:text-2xl font-bold">
-                            <span className="text-accent">${analyticsData.avgWin.toFixed(2)}</span> / <span className="text-red-400">${analyticsData.avgLoss.toFixed(2)}</span>
+                            <span className="text-green-500">${analyticsData.avgWin.toFixed(2)}</span> / <span className="text-red-500">${analyticsData.avgLoss.toFixed(2)}</span>
                         </div>
                          <p className="text-xs text-muted-foreground">Average result per trade</p>
                     </CardContent>
@@ -243,7 +243,7 @@ const PerformanceDashboard = () => {
                                 />
                                 <Bar dataKey="pnl" radius={[0, 4, 4, 0]}>
                                      {analyticsData.pnlByPairData.map((entry, index) => (
-                                        <div key={`cell-${index}`} className={cn(entry.pnl > 0 ? "fill-primary" : "fill-red-400")} />
+                                        <Cell key={`cell-${index}`} fill={entry.pnl > 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))'} />
                                      ))}
                                      <LabelList 
                                         dataKey="pnl" 
@@ -304,7 +304,7 @@ const PerformanceDashboard = () => {
                                        <div className="mt-1 flex-grow flex flex-col justify-end">
                                            <p className={cn(
                                                "text-sm md:text-base font-bold",
-                                               data.pnl >= 0 ? "text-accent" : "text-red-400"
+                                               data.pnl >= 0 ? "text-green-500" : "text-red-500"
                                            )}>
                                                {data.pnl < 0 ? '-' : ''}${Math.abs(data.pnl).toFixed(0)}
                                            </p>
@@ -477,7 +477,7 @@ const AiBacktester = () => {
                                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
-                                    <div className={cn("text-2xl font-bold", results.netPnl >= 0 ? 'text-accent' : 'text-red-400')}>
+                                    <div className={cn("text-2xl font-bold", results.netPnl >= 0 ? 'text-green-500' : 'text-red-500')}>
                                          {results.netPnl >= 0 ? '+' : '-'}${Math.abs(results.netPnl).toFixed(2)}
                                     </div>
                                 </CardContent>
