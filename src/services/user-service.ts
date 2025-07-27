@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { doc, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch, updateDoc } from 'firebase/firestore';
 import { z } from 'zod';
 
 const UserProfileSchema = z.object({
@@ -14,6 +14,12 @@ const UserProfileSchema = z.object({
     createdAt: z.any(), // Keeping it simple for now
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
+
+export async function updateUserProfile(userId: string, data: Partial<UserProfile>) {
+    const userDocRef = doc(db, 'users', userId);
+    await updateDoc(userDocRef, data);
+}
+
 
 export async function followUser(currentUserId: string, targetUserId: string) {
     if (currentUserId === targetUserId) {
@@ -43,3 +49,5 @@ export async function unfollowUser(currentUserId: string, targetUserId:string) {
     
     await batch.commit();
 }
+
+    

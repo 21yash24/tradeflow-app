@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Grid3x3, Bookmark, MessageCircle, Repeat, Heart, Loader2 } from 'lucide-react';
+import { Grid3x3, Bookmark, MessageCircle, Repeat, Heart } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, doc } from 'firebase/firestore';
@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { followUser, unfollowUser, type UserProfile } from '@/services/user-service';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { useParams } from 'next/navigation';
 
 type Post = {
     id: string;
@@ -99,166 +100,176 @@ const ProfileHeaderSkeleton = () => (
         <Skeleton className="h-24 w-24 sm:h-32 sm:w-32 rounded-full border-4" />
         <div className="flex-grow space-y-3">
             <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-4 w-72" />
+            <Skeleton className="h-4 w-full max-w-sm" />
+             <Skeleton className="h-4 w-full max-w-xs" />
             <div className="flex gap-6 sm:gap-8 my-4">
                 <div className="text-center space-y-1"><Skeleton className="h-6 w-8" /><Skeleton className="h-4 w-12" /></div>
                 <div className="text-center space-y-1"><Skeleton className="h-6 w-8" /><Skeleton className="h-4 w-16" /></div>
                 <div className="text-center space-y-1"><Skeleton className="h-6 w-8" /><Skeleton className="h-4 w-16" /></div>
             </div>
              <div className="flex gap-2 mt-4">
-                <Skeleton className="h-9 w-full" />
-                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-24" />
+                <Skeleton className="h-9 w-24" />
             </div>
         </div>
       </div>
 )
 
 
-export default function UserProfilePage({ params: { userId } }: { params: { userId: string } }) {
-  const [currentUser] = useAuthState(auth);
-  const { toast } = useToast();
+export default function UserProfilePage() {
+    const params = useParams();
+    const userId = params.userId as string;
+    const [currentUser] = useAuthState(auth);
+    const { toast } = useToast();
 
-  const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
-  const [userPosts, setUserPosts] = useState<Post[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+    const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
+    const [userPosts, setUserPosts] = useState<Post[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-  const [followers, setFollowers] = useState(0);
-  const [following, setFollowing] = useState(0);
-  const [isFollowing, setIsFollowing] = useState(false);
+    const [followers, setFollowers] = useState(0);
+    const [following, setFollowing] = useState(0);
+    const [isFollowing, setIsFollowing] = useState(false);
 
-  useEffect(() => {
-    if (!userId) return;
-    setIsLoading(true);
+    useEffect(() => {
+        if (!userId) {
+             setIsLoading(false);
+             return;
+        };
 
-    const userDocRef = doc(db, 'users', userId);
-    const userUnsub = onSnapshot(userDocRef, (doc) => {
-        if(doc.exists()){
-            setProfileUser(doc.data() as UserProfile);
-        } else {
-            // handle user not found
-        }
-    });
+        setIsLoading(true);
 
-    const postsQuery = query(
-        collection(db, "posts"),
-        where("authorId", "==", userId),
-        orderBy("createdAt", "desc")
-    );
-    const postsUnsub = onSnapshot(postsQuery, (snapshot) => {
-        const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
-        setUserPosts(postsData);
-    });
-    
-    const followersQuery = collection(db, 'users', userId, 'followers');
-    const followingQuery = collection(db, 'users', userId, 'following');
-    const followersUnsub = onSnapshot(followersQuery, (snapshot) => setFollowers(snapshot.size));
-    const followingUnsub = onSnapshot(followingQuery, (snapshot) => setFollowing(snapshot.size));
-
-    let isFollowingUnsub = () => {};
-    if (currentUser) {
-        const isFollowingRef = doc(db, 'users', currentUser.uid, 'following', userId);
-        isFollowingUnsub = onSnapshot(isFollowingRef, (doc) => {
-            setIsFollowing(doc.exists());
+        const userDocRef = doc(db, 'users', userId);
+        const userUnsub = onSnapshot(userDocRef, (doc) => {
+            if(doc.exists()){
+                setProfileUser(doc.data() as UserProfile);
+            } else {
+                console.error("User not found");
+                // Potentially redirect to a 404 page
+            }
+            setIsLoading(false);
         });
-    }
 
-    // Combine loading states
-    Promise.all([new Promise(res => onSnapshot(userDocRef, res))]).then(() => setIsLoading(false));
+        const postsQuery = query(
+            collection(db, "posts"),
+            where("authorId", "==", userId),
+            orderBy("createdAt", "desc")
+        );
+        const postsUnsub = onSnapshot(postsQuery, (snapshot) => {
+            const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+            setUserPosts(postsData);
+        });
+        
+        const followersQuery = collection(db, 'users', userId, 'followers');
+        const followingQuery = collection(db, 'users', userId, 'following');
+        const followersUnsub = onSnapshot(followersQuery, (snapshot) => setFollowers(snapshot.size));
+        const followingUnsub = onSnapshot(followingQuery, (snapshot) => setFollowing(snapshot.size));
 
-    return () => {
-        userUnsub();
-        postsUnsub();
-        followersUnsub();
-        followingUnsub();
-        isFollowingUnsub();
+        let isFollowingUnsub = () => {};
+        if (currentUser) {
+            const isFollowingRef = doc(db, 'users', currentUser.uid, 'following', userId);
+            isFollowingUnsub = onSnapshot(isFollowingRef, (doc) => {
+                setIsFollowing(doc.exists());
+            });
+        }
+
+        return () => {
+            userUnsub();
+            postsUnsub();
+            followersUnsub();
+            followingUnsub();
+            isFollowingUnsub();
+        };
+    }, [userId, currentUser]);
+
+    const handleFollow = async () => {
+        if (!currentUser) {
+            toast({ title: 'Please log in to follow users.', variant: 'destructive'});
+            return;
+        };
+        await followUser(currentUser.uid, userId);
+        toast({ title: "Followed", description: `You are now following ${profileUser?.displayName}.` });
     };
-  }, [userId, currentUser]);
 
-  const handleFollow = async () => {
-    if (!currentUser) return;
-    await followUser(currentUser.uid, userId);
-    toast({ title: "Followed", description: `You are now following ${profileUser?.displayName}.` });
-  };
-  const handleUnfollow = async () => {
-    if (!currentUser) return;
-    await unfollowUser(currentUser.uid, userId);
-    toast({ title: "Unfollowed", description: `You are no longer following ${profileUser?.displayName}.` });
-  };
+    const handleUnfollow = async () => {
+        if (!currentUser) return;
+        await unfollowUser(currentUser.uid, userId);
+        toast({ title: "Unfollowed", description: `You are no longer following ${profileUser?.displayName}.` });
+    };
 
-  const isCurrentUserProfile = currentUser?.uid === userId;
+    const isCurrentUserProfile = currentUser?.uid === userId;
 
-  return (
-    <div className="space-y-6">
-      {isLoading ? <ProfileHeaderSkeleton /> : profileUser && (
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 items-start">
-            <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-primary/50">
-              <AvatarImage src={profileUser.photoURL || `https://placehold.co/150x150.png`} data-ai-hint="profile avatar" />
-              <AvatarFallback>{profileUser.displayName?.charAt(0) || 'U'}</AvatarFallback>
-            </Avatar>
-            <div className="flex-grow">
-                <div className="flex items-center gap-4">
+    return (
+        <div className="space-y-6">
+        {isLoading ? <ProfileHeaderSkeleton /> : profileUser && (
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 items-start">
+                <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-primary/50">
+                <AvatarImage src={profileUser.photoURL || `https://placehold.co/150x150.png`} data-ai-hint="profile avatar" />
+                <AvatarFallback>{profileUser.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                </Avatar>
+                <div className="flex-grow">
                     <h2 className="text-2xl font-bold font-headline">{profileUser.displayName || "Trader"}</h2>
-                </div>
-                <p className="text-muted-foreground mt-1">{profileUser.bio}</p>
-                <div className="flex gap-6 sm:gap-8 my-4">
-                    <UserStat value={userPosts.length} label="posts" />
-                    <UserStat value={followers} label="followers" />
-                    <UserStat value={following} label="following" />
-                </div>
-                 <div className="flex gap-2 mt-4">
-                    {isCurrentUserProfile ? (
-                        <>
-                            <Button asChild className="flex-1"><Link href="/settings">Edit Profile</Link></Button>
-                            <Button variant="outline" className="flex-1">Share Profile</Button>
-                        </>
-                    ) : (
-                        <>
-                            {isFollowing ? (
-                                <Button variant="outline" className="flex-1" onClick={handleUnfollow}>Unfollow</Button>
-                            ) : (
-                                <Button className="flex-1" onClick={handleFollow}>Follow</Button>
-                            )}
-                             <Button variant="outline" className="flex-1">Message</Button>
-                        </>
-                    )}
+                    <p className="text-muted-foreground mt-1">{profileUser.bio}</p>
+                    <div className="flex gap-6 sm:gap-8 my-4">
+                        <UserStat value={userPosts.length} label="posts" />
+                        <UserStat value={followers} label="followers" />
+                        <UserStat value={following} label="following" />
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                        {isCurrentUserProfile ? (
+                            <>
+                                <Button asChild className="flex-1"><Link href="/settings">Edit Profile</Link></Button>
+                                <Button variant="outline" className="flex-1">Share Profile</Button>
+                            </>
+                        ) : (
+                            <>
+                                {isFollowing ? (
+                                    <Button variant="outline" className="flex-1" onClick={handleUnfollow}>Unfollow</Button>
+                                ) : (
+                                    <Button className="flex-1" onClick={handleFollow}>Follow</Button>
+                                )}
+                                <Button variant="outline" className="flex-1">Message</Button>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
-          </div>
-      )}
+        )}
 
-      <Tabs defaultValue="posts" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="posts"><Grid3x3 className="mr-2" /> Posts</TabsTrigger>
-          <TabsTrigger value="saved"><Bookmark className="mr-2" /> Saved</TabsTrigger>
-        </TabsList>
-        <TabsContent value="posts">
-          <div className="pt-4">
-            {isLoading ? (
-                <div className="space-y-4 pt-4">
-                    <PostSkeleton />
-                    <PostSkeleton />
-                </div>
-            ) : userPosts.length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground">
-                    <MessageCircle size={48} className="mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold">No Posts Yet</h3>
-                    <p>This user hasn't posted anything yet.</p>
-                </div>
-            ) : (
-                userPosts.map(post => (
-                    <CommunityPost key={post.id} post={post} />
-                ))
-            )}
-          </div>
-        </TabsContent>
-        <TabsContent value="saved">
-             <div className="text-center py-16 text-muted-foreground">
-                <Bookmark size={48} className="mx-auto mb-4" />
-                <h3 className="text-xl font-semibold">No Saved Posts Yet</h3>
-                <p>This user has no saved posts.</p>
+        <Tabs defaultValue="posts" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="posts"><Grid3x3 className="mr-2" /> Posts</TabsTrigger>
+            <TabsTrigger value="saved"><Bookmark className="mr-2" /> Saved</TabsTrigger>
+            </TabsList>
+            <TabsContent value="posts">
+            <div className="pt-4">
+                {isLoading ? (
+                    <div className="space-y-4 pt-4">
+                        <PostSkeleton />
+                        <PostSkeleton />
+                    </div>
+                ) : userPosts.length === 0 ? (
+                    <div className="text-center py-16 text-muted-foreground">
+                        <MessageCircle size={48} className="mx-auto mb-4" />
+                        <h3 className="text-xl font-semibold">No Posts Yet</h3>
+                        <p>This user hasn't posted anything yet.</p>
+                    </div>
+                ) : (
+                    userPosts.map(post => (
+                        <CommunityPost key={post.id} post={post} />
+                    ))
+                )}
             </div>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
+            </TabsContent>
+            <TabsContent value="saved">
+                <div className="text-center py-16 text-muted-foreground">
+                    <Bookmark size={48} className="mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold">No Saved Posts Yet</h3>
+                    <p>This user has no saved posts.</p>
+                </div>
+            </TabsContent>
+        </Tabs>
+        </div>
+    );
 }
+
+    

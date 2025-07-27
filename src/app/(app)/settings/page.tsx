@@ -5,161 +5,130 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
-
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth, db } from "@/lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import { type UserProfile, updateUserProfile } from "@/services/user-service";
+import { Loader2 } from "lucide-react";
+import { updateProfile } from "firebase/auth";
 
 export default function SettingsPage() {
     const { toast } = useToast();
-    const { theme, setTheme } = useTheme();
-    const [mounted, setMounted] = useState(false);
+    const [user] = useAuthState(auth);
+    const [profile, setProfile] = useState<Partial<UserProfile>>({});
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
-    }, []);
+        if (user) {
+            const userDocRef = doc(db, 'users', user.uid);
+            const unsubscribe = onSnapshot(userDocRef, (doc) => {
+                if (doc.exists()) {
+                    setProfile(doc.data());
+                }
+                setIsLoading(false);
+            });
+            return () => unsubscribe();
+        } else {
+            setIsLoading(false);
+        }
+    }, [user]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { id, value } = e.target;
+        setProfile(prev => ({ ...prev, [id]: value }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        toast({
-            title: "Settings Saved",
-            description: "Your preferences have been updated successfully.",
-        })
+        if (!user) return;
+        
+        setIsSaving(true);
+        try {
+            const profileDataToUpdate: Partial<UserProfile> = {
+                displayName: profile.displayName,
+                bio: profile.bio,
+                photoURL: profile.photoURL,
+            };
+
+            await updateUserProfile(user.uid, profileDataToUpdate);
+
+            // Also update the auth profile if displayName or photoURL changed
+            if (profile.displayName !== user.displayName || profile.photoURL !== user.photoURL) {
+                 await updateProfile(auth.currentUser!, {
+                    displayName: profile.displayName,
+                    photoURL: profile.photoURL
+                 });
+            }
+
+            toast({
+                title: "Profile Updated",
+                description: "Your profile has been saved successfully.",
+            });
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            toast({
+                title: "Error",
+                description: "Could not save your profile.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        )
     }
+
   return (
     <div className="space-y-6">
         <div>
             <h1 className="text-3xl font-bold tracking-tight font-headline">
-                Settings
+                Edit Profile
             </h1>
             <p className="text-muted-foreground mt-2">
-                Manage your account and application preferences.
+                Manage your public profile information.
             </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Appearance</CardTitle>
-                    <CardDescription>Customize the look and feel of your workspace.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-2">
-                        <h3 className="text-lg font-medium">Theme</h3>
-                        <p className="text-sm text-muted-foreground">
-                            Select a theme. Your preference will be saved for your next visit.
-                        </p>
-                    </div>
-                    {mounted && (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-                            <Button
-                                type="button"
-                                variant={theme === 'light' ? 'default' : 'outline'}
-                                onClick={() => setTheme('light')}
-                                className="h-24 flex flex-col"
-                            >
-                                <Sun className="h-6 w-6 mb-2" />
-                                Light
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={theme === 'dark' ? 'default' : 'outline'}
-                                onClick={() => setTheme('dark')}
-                                className="h-24 flex flex-col"
-                            >
-                                <Moon className="h-6 w-6 mb-2" />
-                                Dark
-                            </Button>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
              <Card>
                 <CardHeader>
-                    <CardTitle>Profile</CardTitle>
-                    <CardDescription>Manage your public profile information.</CardDescription>
+                    <CardTitle>Public Details</CardTitle>
+                    <CardDescription>This information will be displayed on your profile.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="username">Username</Label>
-                        <Input id="username" defaultValue="tradepilot" />
+                        <Label htmlFor="displayName">Display Name</Label>
+                        <Input id="displayName" value={profile.displayName || ''} onChange={handleInputChange} />
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" defaultValue="pilot@tradeflow.app" />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="avatar">Avatar URL</Label>
-                        <Input id="avatar" type="url" defaultValue="https://placehold.co/100x100.png" />
+                        <Label htmlFor="photoURL">Avatar URL</Label>
+                        <Input id="photoURL" type="url" placeholder="https://example.com/image.png" value={profile.photoURL || ''} onChange={handleInputChange} />
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="bio">Bio</Label>
-                        <Textarea id="bio" placeholder="Tell us a little about your trading style." defaultValue="Focused on technical analysis and swing trading major FX pairs." />
+                        <Textarea id="bio" placeholder="Tell us a little about your trading style." value={profile.bio || ''} onChange={handleInputChange} />
                     </div>
                 </CardContent>
             </Card>
 
-             <Card>
-                <CardHeader>
-                    <CardTitle>Trading Preferences</CardTitle>
-                     <CardDescription>Set your default trading parameters.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="default-pair">Default Currency Pair</Label>
-                        <Select defaultValue="EUR/USD">
-                            <SelectTrigger id="default-pair">
-                                <SelectValue placeholder="Select pair" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="EUR/USD">EUR/USD</SelectItem>
-                                <SelectItem value="GBP/JPY">GBP/JPY</SelectItem>
-                                <SelectItem value="AUD/CAD">AUD/CAD</SelectItem>
-                                <SelectItem value="USD/CHF">USD/CHF</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="default-risk">Default Risk (%)</Label>
-                        <Input id="default-risk" type="number" defaultValue="1" />
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Notifications</CardTitle>
-                    <CardDescription>Manage how you receive notifications.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <Label htmlFor="email-notifications" className="flex flex-col space-y-1">
-                            <span>Email Notifications</span>
-                            <span className="font-normal leading-snug text-muted-foreground">
-                                Receive updates via email.
-                            </span>
-                        </Label>
-                        <Switch id="email-notifications" defaultChecked />
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <Label htmlFor="push-notifications" className="flex flex-col space-y-1">
-                            <span>Push Notifications</span>
-                            <span className="font-normal leading-snug text-muted-foreground">
-                                Receive push notifications on your devices.
-                            </span>
-                        </Label>
-                        <Switch id="push-notifications" />
-                    </div>
-                </CardContent>
-            </Card>
             <div className="flex justify-end">
-                <Button type="submit">Save Changes</Button>
+                <Button type="submit" disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                </Button>
             </div>
         </form>
     </div>
   );
 }
+
+    
