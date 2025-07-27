@@ -4,85 +4,114 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Heart, MessageCircle, Repeat } from 'lucide-react';
+
+const CommunityPost = ({ post }: { post: any }) => (
+    <Card className="mb-4 hover:shadow-lg transition-shadow duration-300">
+        <CardContent className="p-4">
+            <div className="flex items-start gap-4">
+                <Avatar>
+                    <AvatarImage src={post.avatarUrl} data-ai-hint="profile avatar" />
+                    <AvatarFallback>{post.fallback}</AvatarFallback>
+                </Avatar>
+                <div className="w-full">
+                    <div className="flex items-center gap-2">
+                        <h4 className="font-semibold">{post.author}</h4>
+                        <span className="text-sm text-muted-foreground">@{post.handle}</span>
+                        <span className="text-sm text-muted-foreground">· {post.time}</span>
+                    </div>
+                    <p className="mt-2 text-foreground/90">{post.content}</p>
+                    <div className="mt-4 flex justify-between items-center text-muted-foreground max-w-xs">
+                        <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-blue-500">
+                           <MessageCircle size={18} /> 
+                           <span>{post.replies}</span>
+                        </Button>
+                        <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-green-500">
+                           <Repeat size={18} /> 
+                           <span>{post.retweets}</span>
+                        </Button>
+                        <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:text-red-500">
+                           <Heart size={18} /> 
+                           <span>{post.likes}</span>
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </CardContent>
+    </Card>
+);
+
+
+const mockPosts = [
+    {
+        id: 1,
+        author: 'TraderAlex',
+        handle: 'alex_trades',
+        avatarUrl: 'https://placehold.co/100x100.png',
+        fallback: 'TA',
+        time: '2h',
+        content: 'Caught a beautiful breakout on $EURUSD during the London session. Price broke above the range high, retested, and flew. Simple, clean, effective. Patience pays off!',
+        replies: 12,
+        retweets: 25,
+        likes: 102
+    },
+    {
+        id: 2,
+        author: 'JessicaFX',
+        handle: 'jessica_fx',
+        avatarUrl: 'https://placehold.co/100x100.png',
+        fallback: 'JF',
+        time: '5h',
+        content: 'Mistake of the day: Revenge trading after a small loss on $GBPUSD. Forced a setup that wasn\'t there and paid the price. A good reminder to step away and reset after a loss.',
+        replies: 34,
+        retweets: 15,
+        likes: 150
+    },
+     {
+        id: 3,
+        author: 'MomentumMike',
+        handle: 'mike_pips',
+        avatarUrl: 'https://placehold.co/100x100.png',
+        fallback: 'MM',
+        time: '1d',
+        content: 'Looking at a potential short on $XAUUSD. We\'re seeing bearish divergence on the 4H chart and a rejection from a key resistance level. Waiting for confirmation on the 1H timeframe before entering.',
+        replies: 45,
+        retweets: 88,
+        likes: 231
+    },
+];
+
 
 const CommunityPage = () => {
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <h1 className="text-3xl font-bold font-headline">Community Hub</h1>
-      <Tabs defaultValue="feed" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="feed">Trade Ideas</TabsTrigger>
-          <TabsTrigger value="charts">Chart Gallery</TabsTrigger>
-          <TabsTrigger value="mistakes">Mistakes Wall</TabsTrigger>
-          <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="feed">
-          <Card className="mb-6">
-            <CardContent className="space-y-4 p-4">
-              <div className="flex gap-4 items-center">
-                <Avatar>
-                  <AvatarImage src="https://placehold.co/100x100.png" data-ai-hint="profile avatar" />
-                  <AvatarFallback>TR</AvatarFallback>
-                </Avatar>
-                <Input placeholder="Share a trade idea (e.g. XAUUSD NY Killzone)..." />
-              </div>
-              <Textarea placeholder="Explain your setup, entry, SL, TP and confluences..." />
-              <Button>Post Idea</Button>
-            </CardContent>
-          </Card>
-
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="mb-4 hover:shadow-xl transition">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex gap-3 items-center">
+        <Card>
+            <CardContent className="p-4 space-y-4">
+                <div className="flex gap-4">
                     <Avatar>
-                      <AvatarImage src="https://placehold.co/100x100.png" data-ai-hint="profile avatar" />
-                      <AvatarFallback>TR</AvatarFallback>
+                        <AvatarImage src="https://placehold.co/100x100.png" data-ai-hint="profile avatar" />
+                        <AvatarFallback>TP</AvatarFallback>
                     </Avatar>
-                    <div>
-                      <h4 className="font-semibold">Trader {i}</h4>
-                      <p className="text-xs text-muted-foreground">EURUSD | 1:3 RR | NY Session</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost">❤️ Like</Button>
+                    <Textarea 
+                        placeholder="What's on your mind, trader?" 
+                        className="bg-background border-2 border-transparent focus-visible:ring-primary focus-visible:border-primary"
+                    />
                 </div>
-                <p className="mt-4">Caught liquidity before NY open. Break of structure + FVG + 1H OB confluence. TP smashed.</p>
-              </CardContent>
-            </Card>
-          ))}
-        </TabsContent>
+                <div className="flex justify-end">
+                    <Button>Post</Button>
+                </div>
+            </CardContent>
+        </Card>
 
-        <TabsContent value="charts">
-            <Card className="text-center p-12">
-                 <h2 className="text-xl font-bold mb-2">Chart Gallery</h2>
-                 <p className="text-muted-foreground">Coming soon: Upload and rate trade charts.</p>
-            </Card>
-        </TabsContent>
-
-        <TabsContent value="mistakes">
-            <Card className="text-center p-12">
-                <h2 className="text-xl font-bold mb-2">Mistakes Wall</h2>
-                <p className="text-muted-foreground">Coming soon: Learn from others' mistakes.</p>
-            </Card>
-        </TabsContent>
-
-        <TabsContent value="leaderboard">
-          <Card className="p-4">
-            <h2 className="text-xl font-bold mb-2">Top Consistent Traders</h2>
-            <ul className="space-y-2">
-              <li className='p-2 rounded-md hover:bg-muted/50'>🥇 Alex – 18 win streak, avg RR 1:2.5</li>
-              <li className='p-2 rounded-md hover:bg-muted/50'>🥈 Jess – 15 days disciplined, avg loss -0.5%</li>
-              <li className='p-2 rounded-md hover:bg-muted/50'>🥉 Ravi – 13 wins, zero revenge trades</li>
-            </ul>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        <div>
+            {mockPosts.map((post) => (
+                <CommunityPost key={post.id} post={post} />
+            ))}
+        </div>
     </div>
   );
 };
