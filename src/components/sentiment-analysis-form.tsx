@@ -70,21 +70,21 @@ export function SentimentAnalysisForm() {
     switch (sentiment?.toLowerCase()) {
       case "positive":
         return {
-          badge: "bg-accent text-accent-foreground",
-          icon: <TrendingUp className="h-6 w-6 text-accent" />,
-          progressStyle: { "--primary": "hsl(var(--accent))" } as React.CSSProperties,
+          badge: "bg-green-500/10 text-green-400 border-green-500/20",
+          icon: <TrendingUp className="h-6 w-6 text-green-400" />,
+          progressStyle: { "--primary": "hsl(142 71% 45%)" } as React.CSSProperties,
         };
       case "negative":
         return {
-          badge: "bg-destructive text-destructive-foreground",
-          icon: <TrendingDown className="h-6 w-6 text-destructive" />,
-          progressStyle: { "--primary": "hsl(var(--destructive))" } as React.CSSProperties,
+          badge: "bg-red-500/10 text-red-400 border-red-500/20",
+          icon: <TrendingDown className="h-6 w-6 text-red-400" />,
+          progressStyle: { "--primary": "hsl(0 84% 60%)" } as React.CSSProperties,
         };
       default:
         return {
-          badge: "bg-secondary text-secondary-foreground",
-          icon: <Minus className="h-6 w-6 text-secondary-foreground" />,
-          progressStyle: { "--primary": "hsl(var(--secondary-foreground))" } as React.CSSProperties,
+          badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",
+          icon: <Minus className="h-6 w-6 text-gray-400" />,
+          progressStyle: { "--primary": "hsl(215 20% 65%)" } as React.CSSProperties,
         };
     }
   };
@@ -94,7 +94,7 @@ export function SentimentAnalysisForm() {
   
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-      <Card className="bg-card/60 backdrop-blur-sm">
+      <Card>
         <CardHeader>
           <CardTitle className="font-headline">Submit Article for Analysis</CardTitle>
         </CardHeader>
@@ -163,7 +163,7 @@ export function SentimentAnalysisForm() {
         {isLoading && <AnalysisSkeleton />}
         {result && (
           <>
-            <Card className="bg-card/60 backdrop-blur-sm border-white/10">
+            <Card>
               <CardHeader>
                 <CardTitle className="font-headline flex items-center justify-between">
                   <span>Sentiment Score</span>
@@ -188,7 +188,7 @@ export function SentimentAnalysisForm() {
               </CardContent>
             </Card>
 
-            <Card className="bg-card/60 backdrop-blur-sm border-white/10">
+            <Card>
               <CardHeader>
                 <CardTitle className="font-headline">AI Summary & Impact</CardTitle>
               </CardHeader>

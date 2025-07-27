@@ -121,8 +121,8 @@ export default function JournalPage() {
                       variant={trade.type === "buy" ? "default" : "destructive"}
                       className={
                         trade.type === "buy"
-                          ? "bg-green-600/20 text-green-500 border-green-600/30 hover:bg-green-600/30"
-                          : "bg-red-600/20 text-red-500 border-red-600/30 hover:bg-red-600/30"
+                          ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
+                          : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
                       }
                     >
                       {trade.type}
@@ -130,7 +130,7 @@ export default function JournalPage() {
                   </TableCell>
                   <TableCell
                     className={
-                      trade.pnl > 0 ? "text-green-500" : "text-red-500"
+                      trade.pnl > 0 ? "text-green-400" : "text-red-400"
                     }
                   >
                     ${trade.pnl.toFixed(2)}

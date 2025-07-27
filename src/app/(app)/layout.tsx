@@ -22,6 +22,7 @@ import {
   Settings,
   Bell,
   Search,
+  Bot,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,7 @@ export default function AppLayout({
                 isActive={isActive('/sentiment-analysis')}
               >
                 <Link href="/sentiment-analysis">
-                  <Search />
+                  <Bot />
                   <span>Sentiment Analysis</span>
                 </Link>
               </SidebarMenuButton>
