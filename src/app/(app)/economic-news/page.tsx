@@ -1,11 +1,13 @@
 
+'use client';
+
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronLeft, ChevronRight, Search, Filter, BarChart2, Folder, Bell, Info } from "lucide-react";
-import { format, startOfWeek, endOfWeek } from 'date-fns';
-import React from 'react';
+import { format, startOfWeek, endOfWeek, add, sub } from 'date-fns';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getEconomicNews, type EconomicEvent } from '@/services/economic-news';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -19,7 +21,7 @@ const getImpactColor = (impact: string) => {
     }
 };
 
-const eventsByDate = (events: EconomicEvent[]) => events.reduce((acc, event) => {
+const groupEventsByDate = (events: EconomicEvent[]) => events.reduce((acc, event) => {
     const eventDate = new Date(event.date);
     const key = format(eventDate, 'EEEE, LLL d');
     if (!acc[key]) {
@@ -30,26 +32,50 @@ const eventsByDate = (events: EconomicEvent[]) => events.reduce((acc, event) => 
 }, {} as Record<string, EconomicEvent[]>);
 
 
-export default async function EconomicNewsPage() {
-    const today = new Date();
-    const start = startOfWeek(today, { weekStartsOn: 1 }); // Monday
-    const end = endOfWeek(today, { weekStartsOn: 1 });
-    
-    const fetchedEvents = await getEconomicNews();
-    const groupedEvents = eventsByDate(fetchedEvents);
+export default function EconomicNewsPage() {
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [events, setEvents] = useState<EconomicEvent[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const start = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
+    const end = endOfWeek(currentDate, { weekStartsOn: 1 });
+
+    useEffect(() => {
+        const fetchEvents = async () => {
+            setIsLoading(true);
+            const from = format(start, 'yyyy-MM-dd');
+            const to = format(end, 'yyyy-MM-dd');
+            // When the service is updated to accept dates, pass them here.
+            const fetchedEvents = await getEconomicNews(); 
+            setEvents(fetchedEvents);
+            setIsLoading(false);
+        };
+        fetchEvents();
+    }, [start, end]);
+
+    const groupedEvents = useMemo(() => groupEventsByDate(events), [events]);
+
+    const handlePrevWeek = () => {
+        setCurrentDate(sub(currentDate, { weeks: 1 }));
+    };
+
+    const handleNextWeek = () => {
+        setCurrentDate(add(currentDate, { weeks: 1 }));
+    };
+
 
     return (
         <div className="space-y-4">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between p-3 border-b bg-muted/30">
                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="icon" className="h-8 w-8">
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrevWeek}>
                             <ChevronLeft className="h-5 w-5" />
                         </Button>
                         <h3 className="text-md font-semibold text-foreground whitespace-nowrap">
-                            This Week: {format(start, 'LLL d')} - {format(end, 'LLL d')}
+                            This Week: {format(start, 'LLL d')} - {format(end, 'LLL d, yyyy')}
                         </h3>
-                        <Button variant="outline" size="icon" className="h-8 w-8">
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleNextWeek}>
                             <ChevronRight className="h-5 w-5" />
                         </Button>
                     </div>
@@ -73,14 +99,27 @@ export default async function EconomicNewsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {Object.entries(groupedEvents).map(([date, dayEvents]) => (
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="text-center py-12">
+                                        Loading economic events...
+                                    </TableCell>
+                                </TableRow>
+                            ) : Object.keys(groupedEvents).length === 0 ? (
+                                 <TableRow>
+                                    <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                                        No economic events for this week.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                Object.entries(groupedEvents).map(([date, dayEvents]) => (
                                 <React.Fragment key={date}>
                                     <TableRow className="bg-muted/20">
                                         <TableCell colSpan={8} className="font-semibold py-2">
                                             {date}
                                         </TableCell>
                                     </TableRow>
-                                    {dayEvents.map((event, index) => (
+                                    {dayEvents.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((event, index) => (
                                         <TableRow key={index} className="hover:bg-muted/50">
                                             <TableCell>{format(new Date(event.date), 'p')}</TableCell>
                                             <TableCell className="font-medium">{event.country}</TableCell>
@@ -110,7 +149,7 @@ export default async function EconomicNewsPage() {
                                         </TableRow>
                                     ))}
                                 </React.Fragment>
-                            ))}
+                            )))}
                         </TableBody>
                     </Table>
                 </CardContent>
