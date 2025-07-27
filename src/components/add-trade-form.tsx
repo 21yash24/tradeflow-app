@@ -24,16 +24,20 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { CalendarIcon, Upload } from "lucide-react";
+import { CalendarIcon, Upload, Loader2 } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Slider } from "./ui/slider";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
 import Image from "next/image";
+import { auth, db } from "@/lib/firebase";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { doc, onSnapshot } from "firebase/firestore";
+import type { ChecklistItem, UserProfile } from "@/services/user-service";
 
 const formSchema = z.object({
   accountId: z.string().min(1, "Account is required."),
@@ -56,25 +60,39 @@ type AddTradeFormProps = {
   onBack: () => void;
 };
 
-const checklistItems = [
-    { id: 'check1', label: 'Market conditions align with my strategy.' },
-    { id: 'check2', label: 'The risk/reward ratio is favorable (e.g., 1:2 or better).' },
-    { id: 'check3', label: 'I have a clear entry signal.' },
-    { id: 'check4', label: 'I have a pre-defined stop-loss level.' },
-    { id: 'check5', label: 'I have a pre-defined take-profit level.' },
-    { id: 'check6', label: 'I am not emotionally influenced by previous trades.' },
-];
-
 
 function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
+    const [user] = useAuthState(auth);
+    const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+    
+    useEffect(() => {
+        if (user) {
+            const userDocRef = doc(db, 'users', user.uid);
+            const unsubscribe = onSnapshot(userDocRef, (doc) => {
+                if (doc.exists()) {
+                    const data = doc.data() as UserProfile;
+                    if (data.preTradeChecklist && data.preTradeChecklist.length > 0) {
+                        setChecklistItems(data.preTradeChecklist);
+                    }
+                }
+                setIsLoading(false);
+            });
+            return () => unsubscribe();
+        } else {
+            setIsLoading(false);
+        }
+    }, [user]);
     
     const checkedCount = Object.values(checkedItems).filter(Boolean).length;
 
     const getGrade = () => {
-        if (checkedCount >= 5) return { grade: 'A+', color: 'text-green-400' };
-        if (checkedCount === 4) return { grade: 'B', color: 'text-blue-400' };
-        if (checkedCount === 3) return { grade: 'C', color: 'text-yellow-400' };
+        if(checklistItems.length === 0) return { grade: 'N/A', color: 'text-muted-foreground' };
+        const ratio = checkedCount / checklistItems.length;
+        if (ratio >= 0.8) return { grade: 'A+', color: 'text-green-400' };
+        if (ratio >= 0.6) return { grade: 'B', color: 'text-blue-400' };
+        if (ratio >= 0.4) return { grade: 'C', color: 'text-yellow-400' };
         return { grade: 'D', color: 'text-red-400' };
     }
 
@@ -82,6 +100,14 @@ function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
     
     const handleCheckboxChange = (id: string, checked: boolean) => {
         setCheckedItems(prev => ({ ...prev, [id]: checked }));
+    }
+
+    if (isLoading) {
+         return (
+            <div className="flex justify-center items-center h-48">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        )
     }
 
     return (
@@ -94,7 +120,7 @@ function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
                  </div>
             </div>
             
-            {checklistItems.map((item, index) => (
+            {checklistItems.length > 0 ? checklistItems.map((item, index) => (
                 <div key={item.id}>
                     <div className="flex items-center space-x-3">
                         <Checkbox 
@@ -108,7 +134,9 @@ function PreTradeChecklist({ onContinue }: { onContinue: () => void }) {
                     </div>
                     {index < checklistItems.length - 1 && <Separator className="mt-4" />}
                 </div>
-            ))}
+            )) : (
+                <p className="text-muted-foreground text-center py-4">No pre-trade checklist items found. You can add them in Settings.</p>
+            )}
             <div className="mt-6 flex justify-end">
                 <Button onClick={onContinue}>
                     Continue
@@ -139,9 +167,6 @@ function AddTradeForm({ onSubmit, onBack }: AddTradeFormProps) {
   const screenshotValue = form.watch("screenshot");
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    // This is the corrected logic.
-    // The date must be formatted before sending to Firestore.
-    // The onSubmit prop must be called with the values BEFORE the form is reset.
     const submissionData = {
         ...values,
         date: format(values.date, 'yyyy-MM-dd'),

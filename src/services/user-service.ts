@@ -4,13 +4,22 @@
 import { db } from '@/lib/firebase-admin';
 import { z } from 'zod';
 
+const ChecklistItemSchema = z.object({
+    id: z.string(),
+    label: z.string(),
+});
+export type ChecklistItem = z.infer<typeof ChecklistItemSchema>;
+
+
 const UserProfileSchema = z.object({
     uid: z.string(),
     displayName: z.string(),
     email: z.string(),
     photoURL: z.string().nullable(),
     bio: z.string(),
-    createdAt: z.any(), // Keeping it simple for now
+    createdAt: z.any(),
+    preTradeChecklist: z.array(ChecklistItemSchema).optional(),
+    disciplineChecklist: z.array(ChecklistItemSchema).optional(),
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 

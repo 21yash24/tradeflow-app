@@ -11,10 +11,74 @@ import { useEffect, useState, useRef } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
-import { type UserProfile } from "@/services/user-service";
-import { Loader2, Upload } from "lucide-react";
-import { updateProfile } from "firebase/auth";
+import { type UserProfile, type ChecklistItem } from "@/services/user-service";
+import { Loader2, Upload, Trash2, PlusCircle } from "lucide-react";
+import { updateProfile as updateAuthProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+const defaultPreTradeChecklist: ChecklistItem[] = [
+    { id: 'check1', label: 'Market conditions align with my strategy.' },
+    { id: 'check2', label: 'The risk/reward ratio is favorable (e.g., 1:2 or better).' },
+    { id: 'check3', label: 'I have a clear entry signal.' },
+    { id: 'check4', label: 'I have a pre-defined stop-loss level.' },
+    { id: 'check5', label: 'I have a pre-defined take-profit level.' },
+    { id: 'check6', label: 'I am not emotionally influenced by previous trades.' },
+];
+
+const defaultDisciplineChecklist: ChecklistItem[] = [
+    { id: 'review_plan', label: 'I reviewed my trading plan.' },
+    { id: 'follow_rules', label: 'I followed my entry and exit rules without hesitation.' },
+    { id: 'manage_risk', label: 'I applied proper risk management on every trade.' },
+    { id: 'avoid_fomo', label: 'I avoided FOMO and revenge trading.' },
+    { id: 'journal_trades', label: 'I logged all my trades in the journal.' },
+    { id: 'review_day', label: 'I reviewed my performance and took notes for tomorrow.' },
+];
+
+function ChecklistManager({ title, description, items, setItems }: { title: string, description: string, items: ChecklistItem[], setItems: (items: ChecklistItem[]) => void }) {
+    
+    const handleItemChange = (id: string, newLabel: string) => {
+        setItems(items.map(item => item.id === id ? { ...item, label: newLabel } : item));
+    }
+
+    const handleAddItem = () => {
+        const newItem: ChecklistItem = { id: `item-${Date.now()}`, label: '' };
+        setItems([...items, newItem]);
+    }
+    
+    const handleRemoveItem = (id: string) => {
+        setItems(items.filter(item => item.id !== id));
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-2">
+                    {items.map(item => (
+                        <div key={item.id} className="flex items-center gap-2">
+                            <Input 
+                                value={item.label}
+                                onChange={(e) => handleItemChange(item.id, e.target.value)}
+                                placeholder="Enter checklist item..."
+                            />
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)} type="button">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+                 <Button onClick={handleAddItem} variant="outline" size="sm" type="button">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Item
+                </Button>
+            </CardContent>
+        </Card>
+    )
+}
+
 
 export default function SettingsPage() {
     const { toast } = useToast();
@@ -29,7 +93,12 @@ export default function SettingsPage() {
             const userDocRef = doc(db, 'users', user.uid);
             const unsubscribe = onSnapshot(userDocRef, (doc) => {
                 if (doc.exists()) {
-                    setProfile(doc.data());
+                    const data = doc.data();
+                    setProfile({
+                        ...data,
+                        preTradeChecklist: data.preTradeChecklist || defaultPreTradeChecklist,
+                        disciplineChecklist: data.disciplineChecklist || defaultDisciplineChecklist,
+                    });
                 }
                 setIsLoading(false);
             });
@@ -61,23 +130,19 @@ export default function SettingsPage() {
         
         setIsSaving(true);
         try {
-            // Data to be saved in the Firestore 'users' collection document.
-            // This is where we store the potentially long data URI for the photo.
             const firestoreDataToUpdate: Partial<UserProfile> = {
                 displayName: profile.displayName,
                 bio: profile.bio,
                 photoURL: profile.photoURL,
+                preTradeChecklist: profile.preTradeChecklist,
+                disciplineChecklist: profile.disciplineChecklist,
             };
 
-            // Update Firestore document. This is fine with the long data URI.
             const userDocRef = doc(db, 'users', user.uid);
             await updateDoc(userDocRef, firestoreDataToUpdate);
 
-            // Data for the core Firebase Auth user profile.
-            // We ONLY update the displayName here. We DO NOT update the photoURL
-            // to avoid the "URL too long" error.
             if (profile.displayName !== user.displayName) {
-                 await updateProfile(auth.currentUser, {
+                 await updateAuthProfile(auth.currentUser, {
                     displayName: profile.displayName,
                  });
             }
@@ -110,10 +175,10 @@ export default function SettingsPage() {
     <div className="space-y-6">
         <div>
             <h1 className="text-3xl font-bold tracking-tight font-headline">
-                Edit Profile
+                Settings
             </h1>
             <p className="text-muted-foreground mt-2">
-                Manage your public profile information.
+                Manage your public profile and checklist settings.
             </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -153,6 +218,21 @@ export default function SettingsPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            <ChecklistManager 
+                title="Pre-Trade Checklist"
+                description="Customize the checklist that appears before you log a trade."
+                items={profile.preTradeChecklist || []}
+                setItems={(items) => setProfile(p => ({...p, preTradeChecklist: items}))}
+            />
+
+            <ChecklistManager 
+                title="Daily Discipline Checklist"
+                description="Customize your daily habit tracker."
+                items={profile.disciplineChecklist || []}
+                setItems={(items) => setProfile(p => ({...p, disciplineChecklist: items}))}
+            />
+
 
             <div className="flex justify-end">
                 <Button type="submit" disabled={isSaving}>

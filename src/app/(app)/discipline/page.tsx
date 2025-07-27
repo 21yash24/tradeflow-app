@@ -14,15 +14,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-
-const checklistItems = [
-    { id: 'review_plan', label: 'I reviewed my trading plan.' },
-    { id: 'follow_rules', label: 'I followed my entry and exit rules without hesitation.' },
-    { id: 'manage_risk', label: 'I applied proper risk management on every trade.' },
-    { id: 'avoid_fomo', label: 'I avoided FOMO and revenge trading.' },
-    { id: 'journal_trades', label: 'I logged all my trades in the journal.' },
-    { id: 'review_day', label: 'I reviewed my performance and took notes for tomorrow.' },
-];
+import type { ChecklistItem, UserProfile } from '@/services/user-service';
 
 type ChecklistState = Record<string, boolean>;
 
@@ -37,6 +29,7 @@ const DisciplineTrackerPage = () => {
     const [user] = useAuthState(auth);
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(true);
+    const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
     const [data, setData] = useState<DisciplineData>({
         streak: 0,
         checklist: {},
@@ -46,6 +39,21 @@ const DisciplineTrackerPage = () => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const docRef = user ? doc(db, 'discipline', `${user.uid}_${todayStr}`) : null;
     const streakRef = user ? doc(db, 'streaks', user.uid) : null;
+    
+    useEffect(() => {
+        if (user) {
+            const userDocRef = doc(db, 'users', user.uid);
+            const unsubUser = onSnapshot(userDocRef, (doc) => {
+                if (doc.exists()) {
+                    const data = doc.data() as UserProfile;
+                    if (data.disciplineChecklist && data.disciplineChecklist.length > 0) {
+                        setChecklistItems(data.disciplineChecklist);
+                    }
+                }
+            });
+            return () => unsubUser();
+        }
+    }, [user]);
 
     useEffect(() => {
         if (!user) {
@@ -127,21 +135,19 @@ const DisciplineTrackerPage = () => {
         if (!user || !docRef || !streakRef) return;
         
         try {
-            // Save today's final data
             await setDoc(docRef, {
                 checklist: data.checklist,
                 notes: data.notes,
                 lastCompletedDate: todayStr,
             }, { merge: true });
 
-            // Update streak
             const streakDoc = await getDoc(streakRef);
             let currentStreak = 0;
             if (streakDoc.exists()) {
                 const lastDateStr = streakDoc.data().lastCompletedDate;
                 if(lastDateStr) {
                     const lastDate = new Date(lastDateStr);
-                    if (isYesterday(lastDate) || isToday(lastDate)) { // isToday check prevents double counting
+                    if (isYesterday(lastDate) || isToday(lastDate)) { 
                          currentStreak = streakDoc.data().streak;
                     }
                 }
@@ -164,7 +170,7 @@ const DisciplineTrackerPage = () => {
     };
     
     const isCompletedForToday = data.lastCompletedDate === todayStr;
-    const allChecked = checklistItems.every(item => data.checklist[item.id]);
+    const allChecked = checklistItems.length > 0 && checklistItems.every(item => data.checklist[item.id]);
 
     if(isLoading) {
          return (
@@ -204,10 +210,10 @@ const DisciplineTrackerPage = () => {
             <Card>
                 <CardHeader>
                     <CardTitle>Today's Checklist: {format(new Date(), 'MMMM d, yyyy')}</CardTitle>
-                    <CardDescription>Check off each item as you complete it throughout your trading day.</CardDescription>
+                    <CardDescription>Check off each item as you complete it. Customize your list in Settings.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {checklistItems.map(item => (
+                     {checklistItems.length > 0 ? checklistItems.map(item => (
                         <div key={item.id} className="flex items-center space-x-3">
                             <Checkbox 
                                 id={item.id} 
@@ -217,12 +223,14 @@ const DisciplineTrackerPage = () => {
                             />
                             <Label 
                                 htmlFor={item.id} 
-                                className={cn("text-sm font-normal", data.checklist[item.id] && "line-through text-muted-foreground")}
+                                className={cn("text-sm font-normal", (data.checklist[item.id] && !isCompletedForToday) && "line-through text-muted-foreground", isCompletedForToday && "text-muted-foreground")}
                             >
                                 {item.label}
                             </Label>
                         </div>
-                    ))}
+                    )) : (
+                        <p className="text-muted-foreground text-center py-4">No discipline checklist items found. You can add them in Settings.</p>
+                    )}
                 </CardContent>
             </Card>
             
