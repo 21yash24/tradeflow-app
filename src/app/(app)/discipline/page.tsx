@@ -7,14 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from '@/components/ui/textarea';
-import { Flame, CheckCircle2, TrendingUp, Loader2 } from 'lucide-react';
-import { format, isToday, isYesterday, differenceInCalendarDays } from 'date-fns';
+import { Flame, CheckCircle2, TrendingUp, Loader2, History } from 'lucide-react';
+import { format, isToday, isYesterday, differenceInCalendarDays, parseISO } from 'date-fns';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { ChecklistItem, UserProfile } from '@/services/user-service';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type ChecklistState = Record<string, boolean>;
 
@@ -23,6 +24,8 @@ type DisciplineData = {
     streak: number;
     checklist: ChecklistState;
     notes: string;
+    userId?: string; // Add userId for querying
+    date?: string; // Add date for sorting
 }
 
 const DisciplineTrackerPage = () => {
@@ -35,6 +38,8 @@ const DisciplineTrackerPage = () => {
         checklist: {},
         notes: ''
     });
+    const [history, setHistory] = useState<DisciplineData[]>([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const docRef = user ? doc(db, 'discipline', `${user.uid}_${todayStr}`) : null;
@@ -55,6 +60,7 @@ const DisciplineTrackerPage = () => {
         }
     }, [user]);
 
+    // Effect for fetching today's data and streak
     useEffect(() => {
         if (!user) {
             setIsLoading(false);
@@ -106,6 +112,26 @@ const DisciplineTrackerPage = () => {
 
     }, [user, todayStr]);
 
+    // Effect for fetching historical data
+    useEffect(() => {
+        if (!user) {
+            setIsLoadingHistory(false);
+            return;
+        }
+        setIsLoadingHistory(true);
+        const q = query(
+            collection(db, "discipline"),
+            where("userId", "==", user.uid),
+            orderBy("date", "desc")
+        );
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const historyData = snapshot.docs.map(doc => doc.data() as DisciplineData);
+            setHistory(historyData);
+            setIsLoadingHistory(false);
+        });
+        return () => unsubscribe();
+    }, [user]);
+
     const handleChecklistChange = (id: string, checked: boolean) => {
         setData(prev => ({
             ...prev,
@@ -118,9 +144,11 @@ const DisciplineTrackerPage = () => {
     }
 
     const handleSaveChanges = async () => {
-        if (!docRef) return;
+        if (!docRef || !user) return;
         try {
             await setDoc(docRef, {
+                userId: user.uid,
+                date: todayStr,
                 checklist: data.checklist,
                 notes: data.notes
             }, { merge: true });
@@ -136,6 +164,8 @@ const DisciplineTrackerPage = () => {
         
         try {
             await setDoc(docRef, {
+                userId: user.uid,
+                date: todayStr,
                 checklist: data.checklist,
                 notes: data.notes,
                 lastCompletedDate: todayStr,
@@ -264,8 +294,59 @@ const DisciplineTrackerPage = () => {
                      <p className="text-green-500 font-semibold text-center w-full">You've completed your checklist for today. Great job!</p>
                 )}
             </div>
+            
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><History className="h-6 w-6" /> Discipline History</CardTitle>
+                    <CardDescription>Review your performance from previous days.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[120px]">Date</TableHead>
+                                <TableHead className="w-[150px]">Completion</TableHead>
+                                <TableHead>Notes</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoadingHistory ? (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="text-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                                    </TableCell>
+                                </TableRow>
+                            ) : history.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                                        No history found. Complete a day to start your log.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                history.map(log => {
+                                    const completedCount = Object.values(log.checklist || {}).filter(Boolean).length;
+                                    const totalCount = checklistItems.length;
+                                    return (
+                                        <TableRow key={log.date}>
+                                            <TableCell className="font-medium">{log.date ? format(parseISO(log.date), 'MMM d, yyyy') : 'N/A'}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={completedCount === totalCount && totalCount > 0 ? "default" : "secondary"}>
+                                                    {completedCount} / {totalCount} tasks
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground text-sm">{log.notes || 'No notes.'}</TableCell>
+                                        </TableRow>
+                                    )
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </div>
     )
 }
 
 export default DisciplineTrackerPage;
+
+    
