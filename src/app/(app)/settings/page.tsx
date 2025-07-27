@@ -10,8 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState, useRef } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
-import { type UserProfile, updateUserProfile } from "@/services/user-service";
+import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { type UserProfile } from "@/services/user-service";
 import { Loader2, Upload } from "lucide-react";
 import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -67,7 +67,10 @@ export default function SettingsPage() {
                 photoURL: profile.photoURL,
             };
 
-            await updateUserProfile(user.uid, profileDataToUpdate);
+            // Update firestore document directly from the client
+            const userDocRef = doc(db, 'users', user.uid);
+            await updateDoc(userDocRef, profileDataToUpdate);
+
 
             // Also update the auth profile if displayName or photoURL changed
             if (profile.displayName !== user.displayName || profile.photoURL !== user.photoURL) {

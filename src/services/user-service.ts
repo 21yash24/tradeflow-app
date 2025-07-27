@@ -14,11 +14,6 @@ const UserProfileSchema = z.object({
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
-export async function updateUserProfile(userId: string, data: Partial<UserProfile>) {
-    const userDocRef = db.collection('users').doc(userId);
-    await userDocRef.update(data);
-}
-
 export async function followUser(currentUserId: string, targetUserId: string) {
     if (currentUserId === targetUserId) {
         throw new Error("You cannot follow yourself.");
