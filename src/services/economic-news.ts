@@ -18,14 +18,20 @@ export type EconomicEvent = z.infer<typeof EconomicEventSchema>;
 const API_KEY = process.env.FMP_API_KEY;
 const API_URL = 'https://financialmodelingprep.com/api/v3/economic_calendar';
 
-export async function getEconomicNews(): Promise<EconomicEvent[]> {
+export async function getEconomicNews(from?: string, to?: string): Promise<EconomicEvent[]> {
   if (!API_KEY) {
     console.error("FMP API key is not set. Returning mock data.");
     return getMockData();
   }
 
   try {
-    const response = await fetch(`${API_URL}?apikey=${API_KEY}`);
+    const params = new URLSearchParams();
+    if(from) params.append('from', from);
+    if(to) params.append('to', to);
+    params.append('apikey', API_KEY);
+    
+    const response = await fetch(`${API_URL}?${params.toString()}`);
+
     if (!response.ok) {
         console.error(`API request failed with status ${response.status}`);
         return getMockData();

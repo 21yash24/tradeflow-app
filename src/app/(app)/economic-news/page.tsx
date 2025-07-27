@@ -49,8 +49,7 @@ export default function EconomicNewsPage() {
             setIsLoading(true);
             const from = format(start, 'yyyy-MM-dd');
             const to = format(end, 'yyyy-MM-dd');
-            // When the service is updated to accept dates, pass them here.
-            const fetchedEvents = await getEconomicNews(); 
+            const fetchedEvents = await getEconomicNews(from, to); 
             setEvents(fetchedEvents);
             setIsLoading(false);
         };
@@ -236,4 +235,3 @@ export default function EconomicNewsPage() {
     );
 }
 
-    
