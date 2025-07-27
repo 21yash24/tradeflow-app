@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Heart, MessageCircle, Repeat, Loader2, UserPlus, Search } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, where } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, where, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { followUser, type UserProfile } from '@/services/user-service';
@@ -159,6 +159,7 @@ const UserSearch = () => {
 
 const CommunityPage = () => {
     const [user] = useAuthState(auth);
+    const [profile, setProfile] = useState<UserProfile | null>(null);
     const { toast } = useToast();
     const [posts, setPosts] = useState<Post[]>([]);
     const [isLoadingPosts, setIsLoadingPosts] = useState(true);
@@ -166,25 +167,37 @@ const CommunityPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
+        if (user) {
+            const userDocRef = doc(db, 'users', user.uid);
+            const unsubscribe = onSnapshot(userDocRef, (doc) => {
+                if (doc.exists()) {
+                    setProfile(doc.data() as UserProfile);
+                }
+            });
+            return () => unsubscribe();
+        }
+    }, [user]);
+
+    useEffect(() => {
         const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
             setPosts(postsData);
-setIsLoadingPosts(false);
+            setIsLoadingPosts(false);
         });
         return () => unsubscribe();
     }, []);
 
     const handlePostSubmit = async () => {
-        if (!user || !newPostContent.trim()) return;
+        if (!user || !profile || !newPostContent.trim()) return;
 
         setIsSubmitting(true);
         try {
             await addDoc(collection(db, 'posts'), {
                 authorId: user.uid,
-                authorName: user.displayName,
-                authorHandle: user.displayName?.toLowerCase().replace(/\s/g, '_') || 'user',
-                authorAvatar: user.photoURL,
+                authorName: profile.displayName,
+                authorHandle: profile.displayName?.toLowerCase().replace(/\s/g, '_') || 'user',
+                authorAvatar: profile.photoURL,
                 content: newPostContent,
                 createdAt: serverTimestamp(),
                 likes: 0,
@@ -211,8 +224,8 @@ setIsLoadingPosts(false);
             <CardContent className="p-4 space-y-4">
                 <div className="flex gap-4">
                     <Avatar>
-                        <AvatarImage src={user?.photoURL || `https://placehold.co/100x100.png`} data-ai-hint="profile avatar" />
-                        <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                        <AvatarImage src={profile?.photoURL || `https://placehold.co/100x100.png`} data-ai-hint="profile avatar" />
+                        <AvatarFallback>{profile?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                     <Textarea 
                         placeholder="What's on your mind, trader?" 
@@ -253,3 +266,5 @@ setIsLoadingPosts(false);
 };
 
 export default CommunityPage;
+
+    
