@@ -11,7 +11,7 @@ export const TradeFlowLogo = (props: SVGProps<SVGSVGElement>) => (
         strokeLinejoin="round"
         {...props}
     >
-       <circle cx="12" cy="12" r="10" fill="hsl(var(--primary-foreground))" stroke="none" />
+       <circle cx="12" cy="12" r="10" fill="hsl(var(--card))" stroke="hsl(var(--primary))" />
        <g stroke="hsl(var(--primary))">
          <line x1="8" y1="15" x2="8" y2="10" strokeWidth="1.5" />
          <line x1="10" y1="15" x2="10" y2="12" strokeWidth="1.5" />
