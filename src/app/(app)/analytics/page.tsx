@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit, FileText, Image as ImageIcon, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit, FileText, Image as ImageIcon, ArrowRight, Lightbulb, TestTubeDiagonal, ShieldCheck } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, Pie, PieChart, RadialBar, RadialBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -16,7 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { useForm, useForm as useHookForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { backtestStrategy, type BacktestResult } from '@/ai/flows/backtester-flow';
+import { analyzeStrategy, type StrategyAnalysis } from '@/ai/flows/strategy-analyst-flow';
 import { Form, FormControl, FormField, FormItem, FormMessage, FormDescription } from '@/components/ui/form';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type Account = {
     id: string;
@@ -662,36 +663,35 @@ const PerformanceDashboard = () => {
     )
 }
 
-const backtestFormSchema = z.object({
+const strategyFormSchema = z.object({
   strategy: z.string().min(10, { message: 'Please describe your strategy in more detail.' }),
   pair: z.string(),
   timeframe: z.string(),
-  dateRange: z.string(),
 });
 
-const AiBacktester = () => {
-    const [results, setResults] = useState<BacktestResult | null>(null);
+const AiStrategyAnalyst = () => {
+    const [results, setResults] = useState<StrategyAnalysis | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
 
-    const form = useForm<z.infer<typeof backtestFormSchema>>({
-        resolver: zodResolver(backtestFormSchema),
+    const form = useForm<z.infer<typeof strategyFormSchema>>({
+        resolver: zodResolver(strategyFormSchema),
         defaultValues: {
             strategy: '',
             pair: 'EUR/USD',
             timeframe: '4H',
-            dateRange: '1Y',
         },
     });
 
-    const handleRunBacktest = async (values: z.infer<typeof backtestFormSchema>) => {
+    const handleRunAnalysis = async (values: z.infer<typeof strategyFormSchema>) => {
         setIsLoading(true);
         setResults(null);
         try {
-            const result = await backtestStrategy(values);
+            const result = await analyzeStrategy(values);
             setResults(result);
         } catch (error) {
-            console.error("Error running backtest:", error);
-            // Optionally, show a toast notification here
+            console.error("Error running analysis:", error);
+            toast({ title: 'Analysis Failed', description: 'There was an error getting a response from the AI.', variant: 'destructive' });
         } finally {
             setIsLoading(false);
         }
@@ -701,12 +701,12 @@ const AiBacktester = () => {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Configure Backtest</CardTitle>
-                    <CardDescription>Define a strategy in plain English and see how it would have performed.</CardDescription>
+                    <CardTitle>Define Your Strategy</CardTitle>
+                    <CardDescription>Describe your trading strategy in plain English. The more detail, the better the AI analysis.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleRunBacktest)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(handleRunAnalysis)} className="space-y-4">
                         <FormField
                             control={form.control}
                             name="strategy"
@@ -715,22 +715,22 @@ const AiBacktester = () => {
                                     <Label htmlFor="strategy">Trading Strategy</Label>
                                     <Textarea 
                                         id="strategy" 
-                                        placeholder="e.g., 'Buy when the 50 EMA crosses above the 200 EMA on the 4H chart. Sell when it crosses below.'" 
-                                        className="min-h-[100px]" 
+                                        placeholder="e.g., 'Buy when the 50 EMA crosses above the 200 EMA on the 4H chart. Place stop-loss 20 pips below the entry and take profit at 1:2 risk/reward.'" 
+                                        className="min-h-[120px]" 
                                         {...field}
                                     />
-                                     {form.formState.errors.strategy && <p className="text-sm font-medium text-destructive">{form.formState.errors.strategy.message}</p>}
+                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
                        
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
                                 name="pair"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <Label>Currency Pair</Label>
+                                        <Label>Intended Currency Pair</Label>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -751,7 +751,7 @@ const AiBacktester = () => {
                                 name="timeframe"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <Label>Timeframe</Label>
+                                        <Label>Primary Timeframe</Label>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -765,30 +765,10 @@ const AiBacktester = () => {
                                     </FormItem>
                                 )}
                             />
-                            <FormField
-                                control={form.control}
-                                name="dateRange"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <Label>Date Range</Label>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="3M">Last 3 Months</SelectItem>
-                                                <SelectItem value="6M">Last 6 Months</SelectItem>
-                                                <SelectItem value="1Y">Last Year</SelectItem>
-                                                <SelectItem value="3Y">Last 3 Years</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </FormItem>
-                                )}
-                            />
                         </div>
                         <div className="flex justify-end">
                             <Button type="submit" disabled={isLoading}>
-                                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Running Backtest...</> : 'Run Backtest'}
+                                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</> : <><BrainCircuit className="mr-2 h-4 w-4" />Analyze Strategy</>}
                             </Button>
                         </div>
                     </form>
@@ -799,78 +779,49 @@ const AiBacktester = () => {
             {isLoading && 
                 <div className="flex flex-col items-center justify-center text-center gap-4 p-8 rounded-lg border border-dashed">
                     <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <h3 className="text-xl font-semibold">AI Backtest in Progress</h3>
-                    <p className="text-muted-foreground">Please wait while our AI crunches the numbers and simulates your strategy...</p>
+                    <h3 className="text-xl font-semibold">AI Analysis in Progress</h3>
+                    <p className="text-muted-foreground">Please wait while our AI mentor reviews your strategy...</p>
                 </div>
             }
 
             {results && (
                  <Card>
                     <CardHeader>
-                        <CardTitle>Backtest Results</CardTitle>
-                        <CardDescription>Summary of the strategy's performance over the selected period.</CardDescription>
+                        <CardTitle>AI Strategy Analysis</CardTitle>
+                        <CardDescription>Here is a critique of your strategy from the AI trading mentor.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                            <Card className="bg-muted/50">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Net P/L</CardTitle>
-                                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <Alert>
+                            <Lightbulb className="h-4 w-4" />
+                            <AlertTitle>Summary</AlertTitle>
+                            <AlertDescription>{results.summary}</AlertDescription>
+                        </Alert>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center text-lg gap-2"><ShieldCheck className="text-primary"/> Clarity & Completeness</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className={cn("text-2xl font-bold", results.netPnl >= 0 ? 'text-green-500' : 'text-red-500')}>
-                                         {results.netPnl >= 0 ? '+' : '-'}${Math.abs(results.netPnl).toFixed(2)}
-                                    </div>
+                                    <p className="text-muted-foreground">{results.clarityAndCompleteness}</p>
                                 </CardContent>
                             </Card>
-                             <Card className="bg-muted/50">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
-                                    <Target className="h-4 w-4 text-muted-foreground" />
+                             <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center text-lg gap-2"><TestTubeDiagonal className="text-destructive"/> Potential Risks</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-2xl font-bold">{results.winRate.toFixed(1)}%</div>
-                                </CardContent>
-                            </Card>
-                             <Card className="bg-muted/50">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Profit Factor</CardTitle>
-                                    <Scale className="h-4 w-4 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{results.profitFactor.toFixed(2)}</div>
-                                </CardContent>
-                            </Card>
-                              <Card className="bg-muted/50">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Total Trades</CardTitle>
-                                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{results.totalTrades}</div>
+                                    <p className="text-muted-foreground">{results.potentialRisks}</p>
                                 </CardContent>
                             </Card>
                         </div>
-
-                        <Separator />
-                        
-                        <div>
-                             <h4 className="font-semibold mb-4 text-center">Equity Curve</h4>
-                             <ResponsiveContainer width="100%" height={300}>
-                                <LineChart data={results.equityCurve}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} label={{ value: 'Trades', position: 'insideBottom', offset: -5 }} />
-                                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value/1000}k`} />
-                                    <Tooltip
-                                        contentStyle={{
-                                            backgroundColor: "hsl(var(--background))",
-                                            borderColor: "hsl(var(--border))"
-                                        }}
-                                    />
-                                    <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center text-lg gap-2"><Lightbulb className="text-yellow-400"/> Suggested Improvements</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-muted-foreground">{results.suggestedImprovements}</p>
+                            </CardContent>
+                        </Card>
                     </CardContent>
                  </Card>
             )}
@@ -886,7 +837,7 @@ export default function AnalyticsPage() {
                 Analytics Dashboard
                 </h1>
                 <p className="text-muted-foreground mt-2">
-                An overview of your trading performance and strategy backtesting.
+                An overview of your trading performance and strategy analysis.
                 </p>
             </div>
 
@@ -896,20 +847,18 @@ export default function AnalyticsPage() {
                         <TrendingUp className="mr-2" />
                         Performance
                     </TabsTrigger>
-                    <TabsTrigger value="ai-backtester">
+                    <TabsTrigger value="ai-analyst">
                         <BrainCircuit className="mr-2" />
-                        AI Backtester
+                        AI Strategy Analyst
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="performance" className="mt-6">
                    <PerformanceDashboard />
                 </TabsContent>
-                <TabsContent value="ai-backtester" className="mt-6">
-                    <AiBacktester />
+                <TabsContent value="ai-analyst" className="mt-6">
+                    <AiStrategyAnalyst />
                 </TabsContent>
             </Tabs>
         </div>
     );
 }
-
-    
