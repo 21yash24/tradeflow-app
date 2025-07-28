@@ -36,7 +36,7 @@ import { Separator } from "./ui/separator";
 import Image from "next/image";
 import { auth, db } from "@/lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { doc, onSnapshot, collection, query, where } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import type { ChecklistItem, UserProfile } from "@/services/user-service";
 
 type Account = {
@@ -53,7 +53,6 @@ const formSchema = z.object({
   date: z.date({ required_error: "A date is required." }),
   type: z.enum(["buy", "sell"]),
   rr: z.coerce.number(),
-  pnl: z.coerce.number().optional(), // PNL is now calculated on submission, so it's optional here
   setup: z.string().min(1, "Trading setup is required."),
   notes: z.string().optional(),
   confidence: z.number().min(0).max(100).default(50),
@@ -63,14 +62,17 @@ const formSchema = z.object({
 
 
 export type AddTradeFormValues = z.infer<typeof formSchema>;
-// We infer the type from the schema and add the id
-export type Trade = Omit<AddTradeFormValues, 'accountIds'> & { id: string; userId: string; accountId: string; pnl: number };
+
+export type Trade = AddTradeFormValues & { 
+    id: string; 
+    userId: string; 
+};
 
 
 type AddTradeFormProps = {
   onSubmit: (values: AddTradeFormValues) => void;
   onBack: () => void;
-  initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date, accountIds: string[] };
+  initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date };
   accounts: Account[];
 };
 
@@ -229,12 +231,10 @@ function AddTradeForm({ onSubmit, onBack, initialData, accounts }: AddTradeFormP
                                         <Checkbox
                                             checked={field.value?.includes(account.id)}
                                             onCheckedChange={(checked) => {
-                                                if (isEditMode) return; // Disallow changing accounts in edit mode
                                                 return checked
                                                     ? field.onChange([...(field.value || []), account.id])
                                                     : field.onChange(field.value?.filter(id => id !== account.id))
                                             }}
-                                            disabled={isEditMode && !field.value?.includes(account.id)}
                                         />
                                     </FormControl>
                                     <FormLabel className="font-normal">
@@ -247,7 +247,6 @@ function AddTradeForm({ onSubmit, onBack, initialData, accounts }: AddTradeFormP
                             <p className="text-sm text-muted-foreground">No accounts found. Please create one in the Analytics tab.</p>
                         )}
                     </div>
-                     {isEditMode && <FormDescription>Cannot change account when editing.</FormDescription>}
                     <FormMessage />
                 </FormItem>
             )}
@@ -447,7 +446,7 @@ function AddTradeForm({ onSubmit, onBack, initialData, accounts }: AddTradeFormP
         <div className="flex justify-between pt-4">
             {!isEditMode && <Button type="button" variant="ghost" onClick={onBack}>Back</Button>}
             <Button type="submit">
-                {isEditMode ? 'Save Changes' : 'Add Trade(s)'}
+                {isEditMode ? 'Save Changes' : 'Add Trade'}
             </Button>
         </div>
       </form>
@@ -462,7 +461,7 @@ export function AddTradeFlow({
     onDone,
 }: { 
     onSubmit: (values: AddTradeFormValues) => void,
-    initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date, accountIds: string[] },
+    initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date },
     accounts: Account[],
     onDone: () => void,
 }) {

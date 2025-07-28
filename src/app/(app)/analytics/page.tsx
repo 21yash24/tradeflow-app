@@ -205,12 +205,11 @@ const PerformanceDashboard = () => {
     }, [user, selectedAccount]);
 
      useEffect(() => {
-        if (user && selectedAccount) {
+        if (user) {
             setIsLoading(true);
             const q = query(
                 collection(db, "trades"),
                 where("userId", "==", user.uid),
-                where("accountId", "==", selectedAccount)
             );
             const unsubscribe = onSnapshot(q, (snapshot) => {
                 const tradesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Trade[];
@@ -218,45 +217,58 @@ const PerformanceDashboard = () => {
                 setIsLoading(false);
             });
             return () => unsubscribe();
-        } else if (!selectedAccount) {
+        } else {
             setTrades([]);
             setIsLoading(false);
         }
-    }, [user, selectedAccount]);
+    }, [user]);
 
 
      const analyticsData = useMemo(() => {
-        if (isLoading) {
+        if (isLoading || !selectedAccount) {
             return {
                  totalTrades: 0, winningTrades: 0, losingTrades: 0, winRate: 0, totalPnl: 0,
                  avgWin: 0, avgLoss: 0, profitFactor: 0, cumulativePnlData: [], pnlByPairData: [], tradesByDay: {}
             }
         }
+        
+        const accountTrades = trades.filter(trade => trade.accountIds.includes(selectedAccount));
+        const currentAccount = accounts.find(acc => acc.id === selectedAccount);
+        if (!currentAccount) return {
+             totalTrades: 0, winningTrades: 0, losingTrades: 0, winRate: 0, totalPnl: 0,
+             avgWin: 0, avgLoss: 0, profitFactor: 0, cumulativePnlData: [], pnlByPairData: [], tradesByDay: {}
+        };
 
-        const totalTrades = trades.length;
-        const winningTrades = trades.filter(t => t.pnl > 0).length;
-        const losingTrades = trades.filter(t => t.pnl <= 0).length;
+        const calculatePnl = (trade: Trade) => (currentAccount.balance * 0.01) * trade.rr;
+
+        const totalTrades = accountTrades.length;
+        const winningTrades = accountTrades.filter(t => calculatePnl(t) > 0).length;
+        const losingTrades = accountTrades.filter(t => calculatePnl(t) <= 0).length;
         const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
-        const totalPnl = trades.reduce((sum, t) => sum + t.pnl, 0);
-        const totalWon = trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
-        const totalLost = trades.filter(t => t.pnl <= 0).reduce((sum, t) => Math.abs(t.pnl), 0);
+
+        const totalPnl = accountTrades.reduce((sum, t) => sum + calculatePnl(t), 0);
+        const totalWon = accountTrades.filter(t => calculatePnl(t) > 0).reduce((sum, t) => sum + calculatePnl(t), 0);
+        const totalLost = accountTrades.filter(t => calculatePnl(t) <= 0).reduce((sum, t) => Math.abs(calculatePnl(t)), 0);
+        
         const avgWin = winningTrades > 0 ? totalWon / winningTrades : 0;
         const avgLoss = losingTrades > 0 ? totalLost / losingTrades : 0;
         const profitFactor = totalLost > 0 ? totalWon / totalLost : 0;
 
-        const cumulativePnlData = trades
+        const cumulativePnlData = accountTrades
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
             .reduce((acc, trade, index) => {
-                const cumulativePnl = (acc[index - 1]?.cumulativePnl || 0) + trade.pnl;
+                const pnl = calculatePnl(trade);
+                const cumulativePnl = (acc[index - 1]?.cumulativePnl || 0) + pnl;
                 acc.push({ name: `Trade ${index + 1}`, cumulativePnl: parseFloat(cumulativePnl.toFixed(2)) });
                 return acc;
             }, [] as { name: string; cumulativePnl: number }[]);
 
-        const pnlByPair = trades.reduce((acc, trade) => {
+        const pnlByPair = accountTrades.reduce((acc, trade) => {
+            const pnl = calculatePnl(trade);
             if (!acc[trade.pair]) {
                 acc[trade.pair] = { name: trade.pair, pnl: 0 };
             }
-            acc[trade.pair].pnl += trade.pnl;
+            acc[trade.pair].pnl += pnl;
             return acc;
         }, {} as Record<string, { name: string, pnl: number }>);
         
@@ -264,12 +276,13 @@ const PerformanceDashboard = () => {
             .map(d => ({...d, pnl: parseFloat(d.pnl.toFixed(2))}))
             .sort((a,b) => b.pnl - a.pnl);
 
-        const tradesByDay = trades.reduce((acc, trade) => {
+        const tradesByDay = accountTrades.reduce((acc, trade) => {
             const dateKey = format(parseISO(trade.date), 'yyyy-MM-dd');
+            const pnl = calculatePnl(trade);
             if (!acc[dateKey]) {
                 acc[dateKey] = { pnl: 0, trades: 0 };
             }
-            acc[dateKey].pnl += trade.pnl;
+            acc[dateKey].pnl += pnl;
             acc[dateKey].trades += 1;
             return acc;
         }, {} as Record<string, { pnl: number, trades: number }>);
@@ -279,7 +292,7 @@ const PerformanceDashboard = () => {
             avgWin, avgLoss, profitFactor, cumulativePnlData, pnlByPairData, tradesByDay
         };
 
-    }, [trades, isLoading]);
+    }, [trades, isLoading, selectedAccount, accounts]);
     
     const firstDayOfMonth = startOfMonth(currentDate);
     const lastDayOfMonth = endOfMonth(currentDate);

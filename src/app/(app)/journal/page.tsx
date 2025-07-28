@@ -29,10 +29,11 @@ import { Separator } from "@/components/ui/separator";
 import { analyzeTrade, TradeAnalysis } from "@/ai/flows/trade-analyst-flow";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useToast } from "@/hooks/use-toast";
 import { parseISO, format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 type Account = {
     id: string;
@@ -141,7 +142,6 @@ export default function JournalPage() {
       const tradeWithDate = {
           ...trade,
           date: parseISO(trade.date),
-          accountIds: [trade.accountId],
       }
       setEditingTrade(tradeWithDate as any);
       setTradeDialogOpen(true);
@@ -153,21 +153,9 @@ export default function JournalPage() {
     // This is for editing an existing trade
     if (editingTrade) {
         const tradeRef = doc(db, "trades", editingTrade.id);
-        const accountId = values.accountIds[0];
-        const account = accounts[accountId];
-        if (!account) {
-            toast({ title: "Error", description: "Selected account not found.", variant: "destructive" });
-            return;
-        }
-
-        const riskAmount = account.balance * 0.01;
-        const calculatedPnl = riskAmount * values.rr;
-
         try {
             await updateDoc(tradeRef, {
                 ...values,
-                pnl: parseFloat(calculatedPnl.toFixed(2)),
-                accountId: accountId, // Keep it as a single accountId for updates
                 userId: user.uid,
                 date: format(values.date, 'yyyy-MM-dd'),
             });
@@ -176,41 +164,23 @@ export default function JournalPage() {
             console.error("Error updating trade:", error);
             toast({ title: "Error", description: "Could not update your trade.", variant: "destructive" });
         }
-    } else { // This is for adding one or more new trades
-        const batch = writeBatch(db);
-        
-        values.accountIds.forEach(accountId => {
-            const account = accounts[accountId];
-            if (!account) return;
-
-            const riskAmount = account.balance * 0.01;
-            const calculatedPnl = riskAmount * values.rr;
-
-            const newTradeDocRef = doc(collection(db, "trades"));
-
-            const newTradeData = {
-                ...values,
-                userId: user.uid,
-                accountId: accountId, // The specific account for this trade doc
-                pnl: parseFloat(calculatedPnl.toFixed(2)),
-                date: format(values.date, 'yyyy-MM-dd'),
-            };
-            delete (newTradeData as any).accountIds; // Don't save the array to the doc
-
-            batch.set(newTradeDocRef, newTradeData);
-        });
-
+    } else { // This is for adding a new trade
+        const newTradeData = {
+            ...values,
+            userId: user.uid,
+            date: format(values.date, 'yyyy-MM-dd'),
+        };
         try {
-            await batch.commit();
+            await addDoc(collection(db, "trades"), newTradeData);
             toast({
-                title: "Trade(s) Logged",
-                description: `Successfully saved ${values.accountIds.length} trade(s) to your journal.`,
+                title: "Trade Logged",
+                description: `Successfully saved trade to your journal.`,
             });
         } catch (error) {
-             console.error("Error saving trades to Firestore:", error);
+             console.error("Error saving trade to Firestore:", error);
              toast({
                 title: "Error",
-                description: "There was a problem saving your trades. Please try again.",
+                description: "There was a problem saving your trade. Please try again.",
                 variant: "destructive",
             });
         }
@@ -243,11 +213,23 @@ export default function JournalPage() {
 
     setIsAnalyzing(true);
     setAnalysisResult(null);
+
+    // Since P/L is not stored, we'll calculate an "average" P/L for the analysis
+    // across all associated accounts. This is just for the AI context.
+    const averagePnl = viewingTrade.accountIds.reduce((sum, accId) => {
+        const account = accounts[accId];
+        if (account) {
+            return sum + ((account.balance * 0.01) * viewingTrade.rr);
+        }
+        return sum;
+    }, 0) / viewingTrade.accountIds.length;
+
+
     try {
         const result = await analyzeTrade({
             pair: viewingTrade.pair,
             type: viewingTrade.type as 'buy' | 'sell',
-            pnl: viewingTrade.pnl,
+            pnl: averagePnl,
             notes: viewingTrade.notes || "",
             mentalState: viewingTrade.mentalState || "",
         });
@@ -311,8 +293,9 @@ export default function JournalPage() {
               <TableRow>
                 <TableHead>Currency Pair</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Account(s)</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>P/L</TableHead>
+                <TableHead>R:R</TableHead>
                 <TableHead>Setup</TableHead>
                 <TableHead className="text-center">Chart</TableHead>
                 <TableHead></TableHead>
@@ -321,54 +304,66 @@ export default function JournalPage() {
             <TableBody>
               {isLoadingTrades ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
+                  <TableCell colSpan={8} className="text-center py-12">
                      <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
                   </TableCell>
                 </TableRow>
               ) : trades.length === 0 ? (
                 <TableRow>
-                   <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                   <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                        No trades logged yet. Click "Add Trade" to start.
                    </TableCell>
                 </TableRow>
-              ) : trades.map((trade) => (
-                <TableRow key={trade.id}>
-                  <TableCell className="font-medium">{trade.pair}</TableCell>
-                  <TableCell>{format(parseISO(trade.date), 'MMM d, yyyy')}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={trade.type === "buy" ? "default" : "destructive"}
-                      className={
-                        trade.type === "buy"
-                          ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
-                          : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
-                      }
-                    >
-                      {trade.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell
-                    className={
-                      trade.pnl > 0 ? "text-green-400" : "text-red-400"
-                    }
-                  >
-                    ${trade.pnl.toFixed(2)}
-                  </TableCell>
-                  <TableCell>{trade.setup}</TableCell>
-                   <TableCell className="text-center">
-                    {trade.screenshot && (
-                      <Button variant="ghost" size="icon" onClick={() => setViewingImage(trade.screenshot!)}>
-                        <ImageIcon className="h-5 w-5" />
-                      </Button>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => setViewingTrade(trade)}>
-                      View Details
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              ) : trades.map((trade) => {
+                  const firstAccountName = accounts[trade.accountIds[0]]?.name || 'N/A';
+                  const remainingAccounts = trade.accountIds.length - 1;
+                  const pnl = (accounts[trade.accountIds[0]]?.balance || 0) * 0.01 * trade.rr;
+
+                  return (
+                    <TableRow key={trade.id}>
+                      <TableCell className="font-medium">{trade.pair}</TableCell>
+                      <TableCell>{format(parseISO(trade.date), 'MMM d, yyyy')}</TableCell>
+                      <TableCell>
+                          <div className="flex items-center gap-2">
+                             <span>{firstAccountName}</span>
+                            {remainingAccounts > 0 && <Badge variant="secondary">+{remainingAccounts}</Badge>}
+                          </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={trade.type === "buy" ? "default" : "destructive"}
+                          className={
+                            trade.type === "buy"
+                              ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
+                              : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
+                          }
+                        >
+                          {trade.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell
+                        className={
+                          trade.rr >= 0 ? "text-green-400" : "text-red-400"
+                        }
+                      >
+                        {trade.rr.toFixed(2)}R
+                      </TableCell>
+                      <TableCell>{trade.setup}</TableCell>
+                       <TableCell className="text-center">
+                        {trade.screenshot && (
+                          <Button variant="ghost" size="icon" onClick={() => setViewingImage(trade.screenshot!)}>
+                            <ImageIcon className="h-5 w-5" />
+                          </Button>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => setViewingTrade(trade)}>
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
             </TableBody>
           </Table>
         </CardContent>
@@ -400,10 +395,6 @@ export default function JournalPage() {
                  <div className="mt-4 space-y-6 max-h-[60vh] overflow-y-auto pr-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div className="space-y-1">
-                            <p className="text-muted-foreground">Account</p>
-                            <p className="font-medium">{accounts[viewingTrade.accountId]?.name || 'N/A'}</p>
-                        </div>
-                        <div className="space-y-1">
                             <p className="text-muted-foreground">Setup</p>
                             <p className="font-medium">{viewingTrade.setup}</p>
                         </div>
@@ -412,18 +403,39 @@ export default function JournalPage() {
                             <p className="font-medium capitalize">{viewingTrade.type}</p>
                         </div>
                          <div className="space-y-1">
-                            <p className="text-muted-foreground">P/L</p>
-                            <p className={`font-medium ${viewingTrade.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                ${viewingTrade.pnl.toFixed(2)}
+                            <p className="text-muted-foreground">Outcome (R:R)</p>
+                            <p className={cn("font-medium", viewingTrade.rr >= 0 ? 'text-green-400' : 'text-red-400')}>
+                                {viewingTrade.rr.toFixed(2)}R
                             </p>
                         </div>
                          <div className="space-y-1">
                             <p className="text-muted-foreground">Confidence</p>
                             <p className="font-medium">{viewingTrade.confidence}%</p>
                         </div>
-                         <div className="space-y-1">
+                         <div className="space-y-1 col-span-full">
                             <p className="text-muted-foreground">Mental State</p>
                             <p className="font-medium">{viewingTrade.mentalState}</p>
+                        </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                        <h4 className="font-semibold">Accounts & P/L</h4>
+                        <div className="space-y-2 rounded-md border p-3">
+                            {viewingTrade.accountIds.map(accId => {
+                                const account = accounts[accId];
+                                if (!account) return null;
+                                const pnl = (account.balance * 0.01) * viewingTrade.rr;
+                                return (
+                                    <div key={accId} className="flex justify-between items-center text-sm">
+                                        <span className="font-medium">{account.name}</span>
+                                        <span className={cn(pnl >= 0 ? "text-green-400" : "text-red-400")}>
+                                            {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                                        </span>
+                                    </div>
+                                )
+                            })}
                         </div>
                     </div>
                     
