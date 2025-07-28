@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit, FileText, Image as ImageIcon, ArrowRight, Lightbulb, ShieldCheck, Upload, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit, FileText, Image as ImageIcon, ArrowRight, Lightbulb, ShieldCheck, Upload, AlertCircle, Send } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, Pie, PieChart, RadialBar, RadialBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -25,6 +25,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Textarea } from '@/components/ui/textarea';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type Account = {
     id: string;
@@ -661,33 +663,63 @@ const PerformanceDashboard = () => {
 }
 
 const AiMarketAnalyst = () => {
+    const [analysisState, setAnalysisState] = useState({
+        photoDataUri: '',
+        userBias: '',
+        timeframe: '',
+        concerns: '',
+    });
+    const [currentStep, setCurrentStep] = useState(0);
     const [results, setResults] = useState<MarketAnalysis | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const questions = [
+        { key: 'userBias', prompt: "What's your initial bias on this chart?", type: 'radio', options: ['Bullish', 'Bearish', 'Neutral'] },
+        { key: 'timeframe', prompt: "What timeframe are you trading?", type: 'radio', options: ['Intraday', 'Swing', 'Position'] },
+        { key: 'concerns', prompt: "What are your specific concerns or questions about this setup?", type: 'textarea' },
+    ];
+    
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                setImagePreview(reader.result as string);
+                setAnalysisState({ ...analysisState, photoDataUri: reader.result as string });
+                setCurrentStep(1); // Move to the first question
             };
             reader.readAsDataURL(file);
         }
     };
+
+    const handleAnswer = (key: string, value: string) => {
+        setAnalysisState({ ...analysisState, [key]: value });
+    };
+
+    const handleNextStep = () => {
+        // Simple validation
+        const currentQuestion = questions[currentStep - 1];
+        if (!analysisState[currentQuestion.key as keyof typeof analysisState]) {
+             toast({ title: 'Please answer the question', variant: 'destructive'});
+             return;
+        }
+        if (currentStep < questions.length + 1) {
+            setCurrentStep(currentStep + 1);
+        }
+    };
     
     const handleRunAnalysis = async () => {
-        if (!imagePreview) {
+        if (!analysisState.photoDataUri) {
             toast({ title: 'No Image', description: 'Please upload a chart image first.', variant: 'destructive'});
             return;
         }
         setIsLoading(true);
         setResults(null);
         try {
-            const result = await analyzeMarket({ photoDataUri: imagePreview });
+            const result = await analyzeMarket(analysisState);
             setResults(result);
+            setCurrentStep(questions.length + 2); // Final results step
         } catch (error) {
             console.error("Error running analysis:", error);
             toast({ title: 'Analysis Failed', description: 'There was an error getting a response from the AI.', variant: 'destructive' });
@@ -695,53 +727,31 @@ const AiMarketAnalyst = () => {
             setIsLoading(false);
         }
     }
+    
+    const resetAnalyzer = () => {
+        setAnalysisState({ photoDataUri: '', userBias: '', timeframe: '', concerns: '' });
+        setResults(null);
+        setCurrentStep(0);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    }
 
-    return (
-        <div className="space-y-6">
-             <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImageChange}
-                className="hidden"
-                accept="image/*"
-            />
-            <Card 
-                className={cn(
-                    "border-dashed border-2 hover:border-primary transition-colors cursor-pointer",
-                    imagePreview && "border-solid"
-                )}
-                onClick={() => fileInputRef.current?.click()}
-            >
-                <CardContent className="p-6">
-                    {imagePreview ? (
-                         <div className="relative w-full h-80 rounded-md overflow-hidden">
-                             <Image src={imagePreview} alt="Chart preview" layout="fill" objectFit="contain" />
-                         </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground h-48">
-                            <Upload className="h-10 w-10" />
-                            <h3 className="text-lg font-medium">Upload a Chart Screenshot</h3>
-                            <p>Click here to select an image of a market chart for analysis.</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            <div className="flex justify-end">
-                <Button onClick={handleRunAnalysis} disabled={isLoading || !imagePreview}>
-                    {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</> : <><BrainCircuit className="mr-2 h-4 w-4" />Analyze Market</>}
-                </Button>
-            </div>
-
-            {isLoading && 
+    const renderCurrentStep = () => {
+        // Loading state
+        if (isLoading) {
+             return (
                 <div className="flex flex-col items-center justify-center text-center gap-4 p-8 rounded-lg border border-dashed">
                     <Loader2 className="h-10 w-10 animate-spin text-primary" />
                     <h3 className="text-xl font-semibold">AI Analysis in Progress</h3>
-                    <p className="text-muted-foreground">Please wait while our AI mentor reviews your chart...</p>
+                    <p className="text-muted-foreground">Please wait while our AI mentor reviews your chart and answers...</p>
                 </div>
-            }
+            )
+        }
 
-            {results && (
+        // Results view
+        if (results && currentStep === questions.length + 2) {
+            return (
                  <Card>
                     <CardHeader>
                         <CardTitle>AI Market Analysis</CardTitle>
@@ -764,14 +774,139 @@ const AiMarketAnalyst = () => {
                                 <p className="text-muted-foreground whitespace-pre-wrap">{results.potentialBiases}</p>
                             </CardContent>
                         </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center text-lg gap-2"><ShieldCheck className="text-green-500"/> Addressing Your Concerns</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-muted-foreground whitespace-pre-wrap">{results.addressingConcerns}</p>
+                            </CardContent>
+                        </Card>
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>Disclaimer</AlertTitle>
                             <AlertDescription>{results.disclaimer}</AlertDescription>
                         </Alert>
+                         <div className="flex justify-end">
+                            <Button onClick={resetAnalyzer} variant="outline">Start New Analysis</Button>
+                        </div>
                     </CardContent>
                  </Card>
-            )}
+            )
+        }
+
+
+        // Conversational steps
+        if (currentStep > 0 && currentStep <= questions.length + 1) {
+            const questionIndex = currentStep - 1;
+            const question = questions[questionIndex];
+            const isLastQuestion = currentStep === questions.length + 1;
+
+            return (
+                <div className="space-y-6">
+                    <Card>
+                        <CardContent className="p-4">
+                            <div className="relative w-full h-80 rounded-md overflow-hidden border">
+                                <Image src={analysisState.photoDataUri} alt="Chart preview" layout="fill" objectFit="contain" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardContent className="p-6 space-y-4">
+                           <AnimatePresence mode="wait">
+                            <motion.div
+                                key={currentStep}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{ duration: 0.3 }}
+                                className="space-y-4"
+                            >
+                                {question ? (
+                                    <div>
+                                        <h3 className="font-semibold text-lg mb-4">{question.prompt}</h3>
+                                        {question.type === 'radio' && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {question.options?.map(opt => (
+                                                    <Button 
+                                                        key={opt}
+                                                        variant={analysisState[question.key as keyof typeof analysisState] === opt ? 'default' : 'outline'}
+                                                        onClick={() => {
+                                                            handleAnswer(question.key, opt);
+                                                            setTimeout(() => handleNextStep(), 200);
+                                                        }}
+                                                    >
+                                                        {opt}
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {question.type === 'textarea' && (
+                                            <div className="space-y-4">
+                                                 <Textarea 
+                                                    placeholder="Type your answer here..."
+                                                    value={analysisState[question.key as keyof typeof analysisState]}
+                                                    onChange={e => handleAnswer(question.key, e.target.value)}
+                                                    rows={4}
+                                                />
+                                                <div className="flex justify-end">
+                                                    <Button onClick={handleNextStep}>
+                                                        Next <ArrowRight className="ml-2 h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    // Final confirmation step
+                                    <div>
+                                        <h3 className="font-semibold text-lg mb-4">Ready for analysis?</h3>
+                                        <p className="text-muted-foreground mb-4">The AI will now analyze your chart and the answers you've provided.</p>
+                                        <div className="flex justify-end">
+                                             <Button onClick={handleRunAnalysis} size="lg">
+                                                <BrainCircuit className="mr-2 h-5 w-5" /> Analyze Now
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </motion.div>
+                            </AnimatePresence>
+                        </CardContent>
+                    </Card>
+                </div>
+            )
+        }
+
+        // Initial upload step
+        return (
+             <>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageChange}
+                    className="hidden"
+                    accept="image/*"
+                />
+                <Card 
+                    className="border-dashed border-2 hover:border-primary transition-colors cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                >
+                    <CardContent className="p-6">
+                        <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground h-48">
+                            <Upload className="h-10 w-10" />
+                            <h3 className="text-lg font-medium">Upload a Chart Screenshot</h3>
+                            <p>Click here to start a new analysis session.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+             </>
+        )
+    };
+
+    return (
+        <div className="space-y-6">
+            {renderCurrentStep()}
         </div>
     )
 }
