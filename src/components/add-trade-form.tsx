@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -47,26 +47,36 @@ type Account = {
     createdAt: any;
 }
 
+const rrSchema = z.object({
+  accountId: z.string(),
+  rr: z.coerce.number(),
+});
+
 const formSchema = z.object({
-  accountIds: z.array(z.string()).min(1, "At least one account is required."),
   pair: z.string().min(1, "Currency pair is required."),
   date: z.date({ required_error: "A date is required." }),
   type: z.enum(["buy", "sell"]),
-  rr: z.coerce.number(),
-  setup: z.string().min(1, "Trading setup is required."),
+  setups: z.string().min(1, "Trading setup is required."),
   notes: z.string().optional(),
   confidence: z.number().min(0).max(100).default(50),
   mentalState: z.string().optional(),
   screenshot: z.string().optional(),
+  rrValues: z.array(rrSchema).min(1, "At least one account's R:R must be set."),
 });
 
 
-export type AddTradeFormValues = z.infer<typeof formSchema>;
+export type AddTradeFormValues = Omit<z.infer<typeof formSchema>, 'rrValues'> & {
+    accountIds: string[];
+    rr: number; // For backward compatibility and single-account trades
+    rrDetails?: Record<string, number>; // For multi-account trades
+};
+
 
 export type Trade = AddTradeFormValues & { 
     id: string; 
     userId: string; 
     deleted?: boolean;
+    setup: string; // Renamed from setups
 };
 
 
@@ -174,28 +184,83 @@ function PreTradeChecklist({ onContinue, isEditMode }: { onContinue: () => void,
 function AddTradeForm({ onSubmit, onBack, initialData, accounts }: AddTradeFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isEditMode = !!initialData;
+  const [applyAllRr, setApplyAllRr] = useState('');
   
-  const form = useForm<AddTradeFormValues>({
+  const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData ? {
-        ...initialData,
-    } : {
-      accountIds: accounts.length > 0 ? [accounts[0].id] : [],
-      pair: "",
-      type: "buy",
-      rr: 2, // Default to a 1:2 R:R
-      setup: "",
-      notes: "",
-      confidence: 50,
-      mentalState: "",
-      screenshot: ""
+    defaultValues: {
+      pair: initialData?.pair || "",
+      date: initialData?.date || new Date(),
+      type: initialData?.type || "buy",
+      setups: initialData?.setup || "",
+      notes: initialData?.notes || "",
+      confidence: initialData?.confidence || 50,
+      mentalState: initialData?.mentalState || "",
+      screenshot: initialData?.screenshot || "",
+      rrValues: initialData?.accountIds?.map(id => ({
+          accountId: id,
+          rr: initialData.rrDetails?.[id] ?? initialData.rr
+      })) || (accounts.length > 0 ? [{ accountId: accounts[0].id, rr: 2 }] : [])
     },
   });
 
-  const screenshotValue = form.watch("screenshot");
+  const { fields, append, remove, update } = useFieldArray({
+      control: form.control,
+      name: "rrValues",
+      keyName: "keyId"
+  });
 
-  const handleSubmit = (values: AddTradeFormValues) => {
-    onSubmit(values);
+  const screenshotValue = form.watch("screenshot");
+  const selectedAccountIds = form.watch('rrValues').map(v => v.accountId);
+
+  const handleAccountsChange = (accountId: string, checked: boolean) => {
+    const currentRrValues = form.getValues('rrValues');
+    if (checked) {
+        if (!currentRrValues.some(val => val.accountId === accountId)) {
+            append({ accountId, rr: 2 });
+        }
+    } else {
+        const indexToRemove = currentRrValues.findIndex(val => val.accountId === accountId);
+        if (indexToRemove !== -1) {
+            remove(indexToRemove);
+        }
+    }
+  };
+
+  const handleApplyAllRr = () => {
+    const rrNum = parseFloat(applyAllRr);
+    if (!isNaN(rrNum)) {
+        fields.forEach((field, index) => {
+            update(index, { ...field, rr: rrNum });
+        });
+    }
+  };
+
+  const handleSubmit = (values: z.infer<typeof formSchema>) => {
+    const accountIds = values.rrValues.map(v => v.accountId);
+    const rrDetails = values.rrValues.reduce((acc, curr) => {
+        acc[curr.accountId] = curr.rr;
+        return acc;
+    }, {} as Record<string, number>);
+
+    // For backward compatibility and single-account logic, store a primary rr value
+    const rr = values.rrValues.length > 0 ? values.rrValues[0].rr : 0;
+    
+    const finalValues: AddTradeFormValues = {
+        pair: values.pair,
+        date: values.date,
+        type: values.type,
+        setup: values.setups,
+        notes: values.notes,
+        confidence: values.confidence,
+        mentalState: values.mentalState,
+        screenshot: values.screenshot,
+        accountIds: accountIds,
+        rrDetails: rrDetails,
+        rr: rr,
+    };
+    
+    onSubmit(finalValues);
     form.reset();
   };
 
@@ -214,44 +279,27 @@ function AddTradeForm({ onSubmit, onBack, initialData, accounts }: AddTradeFormP
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
-        <FormField
-            control={form.control}
-            name="accountIds"
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Trading Account(s)</FormLabel>
-                    <div className="space-y-2 rounded-md border p-4">
-                        {accounts.length > 0 ? accounts.map(account => (
-                           <FormField
-                            key={account.id}
-                            control={form.control}
-                            name="accountIds"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                                    <FormControl>
-                                        <Checkbox
-                                            checked={field.value?.includes(account.id)}
-                                            onCheckedChange={(checked) => {
-                                                return checked
-                                                    ? field.onChange([...(field.value || []), account.id])
-                                                    : field.onChange(field.value?.filter(id => id !== account.id))
-                                            }}
-                                        />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                        {account.name} (${account.balance.toLocaleString()})
-                                    </FormLabel>
-                                </FormItem>
-                            )}
-                           />
-                        )) : (
-                            <p className="text-sm text-muted-foreground">No accounts found. Please create one in the Analytics tab.</p>
-                        )}
-                    </div>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
+        <FormItem>
+            <FormLabel>Trading Account(s)</FormLabel>
+            <div className="space-y-2 rounded-md border p-4">
+                {accounts.length > 0 ? accounts.map(account => (
+                   <FormItem key={account.id} className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                            <Checkbox
+                                checked={selectedAccountIds.includes(account.id)}
+                                onCheckedChange={(checked) => handleAccountsChange(account.id, !!checked)}
+                            />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                            {account.name} (${account.balance.toLocaleString()})
+                        </FormLabel>
+                    </FormItem>
+                )) : (
+                    <p className="text-sm text-muted-foreground">No accounts found. Please create one in the Analytics tab.</p>
+                )}
+            </div>
+            <FormMessage>{form.formState.errors.rrValues?.root?.message}</FormMessage>
+        </FormItem>
         <div className="grid grid-cols-2 gap-4">
         <FormField
           control={form.control}
@@ -308,7 +356,6 @@ function AddTradeForm({ onSubmit, onBack, initialData, accounts }: AddTradeFormP
           )}
         />
         </div>
-        <div className="grid grid-cols-2 gap-4">
         <FormField
           control={form.control}
           name="type"
@@ -330,32 +377,55 @@ function AddTradeForm({ onSubmit, onBack, initialData, accounts }: AddTradeFormP
             </FormItem>
           )}
         />
-         <FormField
-          control={form.control}
-          name="rr"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Outcome (R-Multiple)</FormLabel>
-                <FormControl>
+         <div className="space-y-4 rounded-md border p-4">
+            <FormLabel>Outcome (R-Multiple)</FormLabel>
+            {fields.map((field, index) => {
+                 const account = accounts.find(acc => acc.id === field.accountId);
+                 return (
+                    <FormField
+                        key={field.keyId}
+                        control={form.control}
+                        name={`rrValues.${index}.rr`}
+                        render={({ field }) => (
+                             <FormItem>
+                                <FormLabel className="font-normal text-muted-foreground">{account?.name || 'Unknown Account'}</FormLabel>
+                                <FormControl>
+                                    <Input 
+                                        type="number" 
+                                        step="0.1"
+                                        placeholder="e.g., 2.5 or -1" 
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                     />
+                 )
+            })}
+             {fields.length > 1 && (
+                <div className="flex items-center gap-2 pt-2">
                     <Input 
-                        type="number" 
-                        step="0.1"
-                        placeholder="e.g., 2.5 or -1" 
-                        {...field}
+                        type="number"
+                        placeholder="Apply to all..."
+                        className="h-9"
+                        value={applyAllRr}
+                        onChange={e => setApplyAllRr(e.target.value)}
                     />
-                </FormControl>
-                <FormDescription>
-                    Enter profit/loss as an R-multiple. (e.g., 2 for 2R win, -1 for 1R loss)
-                </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                    <Button type="button" variant="secondary" onClick={handleApplyAllRr} size="sm">
+                        Apply to All
+                    </Button>
+                </div>
+            )}
+             <FormDescription>
+                Enter profit/loss as an R-multiple. (e.g., 2 for 2R win, -1 for 1R loss)
+            </FormDescription>
         </div>
+
 
         <FormField
           control={form.control}
-          name="setup"
+          name="setups"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Setup</FormLabel>
@@ -462,7 +532,7 @@ export function AddTradeFlow({
     onDone,
 }: { 
     onSubmit: (values: AddTradeFormValues) => void,
-    initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date },
+    initialData?: Omit<Trade, 'id' | 'userId' | 'date' | 'setups'> & { date: Date, setup: string },
     accounts: Account[],
     onDone: () => void,
 }) {
@@ -479,3 +549,5 @@ export function AddTradeFlow({
                 accounts={accounts}
             />;
 }
+
+    

@@ -19,7 +19,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -29,12 +28,14 @@ import { Separator } from "@/components/ui/separator";
 import { analyzeTrade, TradeAnalysis } from "@/ai/flows/trade-analyst-flow";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, where, orderBy, doc, updateDoc } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useToast } from "@/hooks/use-toast";
 import { parseISO, format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { addDoc } from 'firebase/firestore';
+
 
 type Account = {
     id: string;
@@ -156,29 +157,25 @@ export default function JournalPage() {
   const handleTradeSubmit = async (values: AddTradeFormValues) => {
     if (!user) return;
     
+    const dataToSave = {
+        ...values,
+        userId: user.uid,
+        date: format(values.date, 'yyyy-MM-dd'),
+    };
+    
     // This is for editing an existing trade
     if (editingTrade) {
         const tradeRef = doc(db, "trades", editingTrade.id);
         try {
-            await updateDoc(tradeRef, {
-                ...values,
-                userId: user.uid,
-                date: format(values.date, 'yyyy-MM-dd'),
-            });
+            await updateDoc(tradeRef, dataToSave);
             toast({ title: "Trade Updated", description: "Your changes have been saved." });
         } catch (error) {
             console.error("Error updating trade:", error);
             toast({ title: "Error", description: "Could not update your trade.", variant: "destructive" });
         }
     } else { // This is for adding a new trade
-        const newTradeData = {
-            ...values,
-            userId: user.uid,
-            date: format(values.date, 'yyyy-MM-dd'),
-            deleted: false, // Set initial deleted status
-        };
         try {
-            await addDoc(collection(db, "trades"), newTradeData);
+            await addDoc(collection(db, "trades"), { ...dataToSave, deleted: false });
             toast({
                 title: "Trade Logged",
                 description: `Successfully saved trade to your journal.`,
@@ -238,9 +235,10 @@ export default function JournalPage() {
 
     const averagePnl = (viewingTrade.accountIds || []).reduce((sum, accId) => {
         const account = accounts[accId];
+        const rr = viewingTrade.rrDetails?.[accId] ?? viewingTrade.rr;
         if (account) {
             const riskAmount = account.riskPerTrade || (account.balance * 0.01);
-            return sum + (riskAmount * (viewingTrade.rr || 0));
+            return sum + (riskAmount * (rr || 0));
         }
         return sum;
     }, 0) / (viewingTrade.accountIds?.length || 1);
@@ -266,6 +264,9 @@ export default function JournalPage() {
     const hasAccounts = trade.accountIds && trade.accountIds.length > 0;
     const firstAccountName = hasAccounts && accounts[trade.accountIds[0]] ? accounts[trade.accountIds[0]].name : 'N/A';
     const remainingAccounts = hasAccounts ? trade.accountIds.length - 1 : 0;
+    const avgRr = hasAccounts && trade.rrDetails 
+        ? Object.values(trade.rrDetails).reduce((sum, val) => sum + val, 0) / Object.values(trade.rrDetails).length
+        : trade.rr || 0;
 
     return (
         <TableRow key={trade.id}>
@@ -291,10 +292,10 @@ export default function JournalPage() {
             </TableCell>
             <TableCell
                 className={
-                (trade.rr || 0) >= 0 ? "text-green-400" : "text-red-400"
+                (avgRr) >= 0 ? "text-green-400" : "text-red-400"
                 }
             >
-                {(trade.rr || 0).toFixed(2)}R
+                {avgRr.toFixed(2)}R
             </TableCell>
             <TableCell>{trade.setup}</TableCell>
             <TableCell className="text-center">
@@ -482,16 +483,10 @@ export default function JournalPage() {
                             <p className="font-medium capitalize">{viewingTrade.type}</p>
                         </div>
                          <div className="space-y-1">
-                            <p className="text-muted-foreground">Outcome (R:R)</p>
-                            <p className={cn("font-medium", (viewingTrade.rr || 0) >= 0 ? 'text-green-400' : 'text-red-400')}>
-                                {(viewingTrade.rr || 0).toFixed(2)}R
-                            </p>
-                        </div>
-                         <div className="space-y-1">
                             <p className="text-muted-foreground">Confidence</p>
                             <p className="font-medium">{viewingTrade.confidence}%</p>
                         </div>
-                         <div className="space-y-1 col-span-full">
+                         <div className="space-y-1">
                             <p className="text-muted-foreground">Mental State</p>
                             <p className="font-medium">{viewingTrade.mentalState}</p>
                         </div>
@@ -505,14 +500,18 @@ export default function JournalPage() {
                             {(viewingTrade.accountIds || []).map(accId => {
                                 const account = accounts[accId];
                                 if (!account) return null;
+                                const rr = viewingTrade.rrDetails?.[accId] ?? viewingTrade.rr;
                                 const riskAmount = account.riskPerTrade || (account.balance * 0.01);
-                                const pnl = riskAmount * (viewingTrade.rr || 0);
+                                const pnl = riskAmount * (rr || 0);
                                 return (
                                     <div key={accId} className="flex justify-between items-center text-sm">
                                         <span className="font-medium">{account.name}</span>
-                                        <span className={cn(pnl >= 0 ? "text-green-400" : "text-red-400")}>
-                                            {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
-                                        </span>
+                                        <div className="flex items-center gap-4">
+                                            <Badge variant="outline">{rr.toFixed(2)}R</Badge>
+                                            <span className={cn(pnl >= 0 ? "text-green-400" : "text-red-400", "w-20 text-right")}>
+                                                {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                                            </span>
+                                        </div>
                                     </div>
                                 )
                             })}
