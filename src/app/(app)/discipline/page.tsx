@@ -136,13 +136,16 @@ const DisciplineTrackerPage = () => {
         setIsLoadingHistory(true);
         const q = query(
             collection(db, "discipline"),
-            where("userId", "==", user.uid),
-            orderBy("date", "desc")
+            where("userId", "==", user.uid)
         );
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const historyData = snapshot.docs
                 .map(doc => ({ ...doc.data(), id: doc.id }) as DisciplineData)
+                .sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime()); // Sort client-side
             setHistory(historyData);
+            setIsLoadingHistory(false);
+        }, (error) => {
+            console.error("Firestore query error:", error);
             setIsLoadingHistory(false);
         });
         return () => unsubscribe();
@@ -168,7 +171,8 @@ const DisciplineTrackerPage = () => {
     const weeklyChallengeProgress = useMemo(() => {
         return history
             .filter(h => {
-                const day = parseISO(h.date!);
+                if (!h.date) return false;
+                const day = parseISO(h.date);
                 return differenceInCalendarDays(new Date(), day) < 7;
             })
             .filter(h => Object.values(h.checklist).length > 0 && Object.values(h.checklist).every(Boolean))
@@ -494,6 +498,3 @@ const DisciplineTrackerPage = () => {
 }
 
 export default DisciplineTrackerPage;
-
-
-    
