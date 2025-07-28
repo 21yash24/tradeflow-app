@@ -29,6 +29,8 @@ type DisciplineData = {
     date?: string; 
 }
 
+type ChecklistState = Record<string, boolean>;
+
 const DisciplineTrackerPage = () => {
     const [user] = useAuthState(auth);
     const { toast } = useToast();
