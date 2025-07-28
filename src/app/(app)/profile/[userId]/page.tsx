@@ -219,7 +219,7 @@ const CommunityPost = React.memo(({ post, onPostDeleted, onPostUpdated }: { post
             try {
                 await deleteDoc(doc(db, 'posts', post.id));
                 toast({ title: "Post Deleted", description: "Your post has been removed." });
-                onPostDeleted(post.id);
+                // No need to call onPostDeleted, snapshot listener will update the state
             } catch (error) {
                 console.error("Error deleting post:", error);
                 toast({ title: "Error", description: "Failed to delete the post.", variant: "destructive" });
@@ -488,3 +488,5 @@ export default function UserProfilePage() {
         </div>
     );
 }
+
+    

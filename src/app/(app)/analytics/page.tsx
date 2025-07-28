@@ -88,17 +88,17 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
         }
     }
     
-    const handleDeleteAccount = useCallback((accountId: string) => {
+    const handleDeleteAccount = async (accountId: string) => {
         if (window.confirm("Are you sure you want to delete this account? This will not delete its trades but they will be unassigned.")) {
             try {
-                deleteDoc(doc(db, "accounts", accountId));
+                await deleteDoc(doc(db, "accounts", accountId));
                 toast({ title: "Account Deleted", description: "The account has been removed." });
             } catch (error) {
                  console.error("Error deleting account:", error);
                  toast({ title: "Error", description: "Could not delete account.", variant: "destructive" });
             }
         }
-    }, [toast]);
+    };
 
     return (
         <Dialog onOpenChange={(isOpen) => !isOpen && setEditingAccount(null)}>
@@ -763,3 +763,5 @@ export default function AnalyticsPage() {
         </div>
     );
 }
+
+    

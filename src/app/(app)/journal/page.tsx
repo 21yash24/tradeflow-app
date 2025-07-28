@@ -137,7 +137,7 @@ export default function JournalPage() {
       setTradeDialogOpen(true);
   }
   
-  const handleOpenEditDialog = useCallback((trade: Trade) => {
+  const handleOpenEditDialog = (trade: Trade) => {
       setViewingTrade(null);
       const tradeWithDate = {
           ...trade,
@@ -145,7 +145,7 @@ export default function JournalPage() {
       }
       setEditingTrade(tradeWithDate as any);
       setTradeDialogOpen(true);
-  }, []);
+  };
 
   const handleTradeSubmit = async (values: AddTradeFormValues) => {
     if (!user) return;
@@ -195,17 +195,16 @@ export default function JournalPage() {
     setIsAnalyzing(false);
   };
 
-  const handleDeleteTrade = (tradeId: string) => {
+  const handleDeleteTrade = async (tradeId: string) => {
     if (window.confirm("Are you sure you want to delete this trade? This action cannot be undone.")) {
-        deleteDoc(doc(db, "trades", tradeId))
-            .then(() => {
-                toast({ title: "Trade Deleted", description: "The trade has been removed from your journal."});
-                handleCloseDetails();
-            })
-            .catch((error) => {
-                console.error("Error deleting trade:", error);
-                toast({ title: "Error", description: "Could not delete trade.", variant: "destructive"});
-            });
+        try {
+            await deleteDoc(doc(db, "trades", tradeId));
+            toast({ title: "Trade Deleted", description: "The trade has been removed from your journal."});
+            handleCloseDetails();
+        } catch(error) {
+            console.error("Error deleting trade:", error);
+            toast({ title: "Error", description: "Could not delete trade.", variant: "destructive"});
+        }
     }
   }
 
@@ -319,8 +318,7 @@ export default function JournalPage() {
                   const hasAccounts = trade.accountIds && trade.accountIds.length > 0;
                   const firstAccountName = hasAccounts ? accounts[trade.accountIds[0]]?.name || 'N/A' : 'N/A';
                   const remainingAccounts = hasAccounts ? trade.accountIds.length - 1 : 0;
-                  const pnl = hasAccounts ? (accounts[trade.accountIds[0]]?.balance || 0) * 0.01 * (trade.rr || 0) : 0;
-
+                  
                   return (
                     <TableRow key={trade.id}>
                       <TableCell className="font-medium">{trade.pair}</TableCell>
@@ -502,3 +500,5 @@ export default function JournalPage() {
     </div>
   );
 }
+
+    

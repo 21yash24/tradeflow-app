@@ -214,6 +214,7 @@ const DisciplineTrackerPage = () => {
             try {
                 await deleteDoc(doc(db, 'discipline', docId));
                 toast({ title: 'Entry Deleted', description: 'The historical log has been removed.' });
+                // The onSnapshot listener will automatically update the UI
             } catch (error) {
                 console.error("Error deleting history entry:", error);
                 toast({ title: 'Error', description: 'Failed to delete the entry.', variant: 'destructive' });
@@ -387,3 +388,5 @@ const DisciplineTrackerPage = () => {
 }
 
 export default DisciplineTrackerPage;
+
+    
