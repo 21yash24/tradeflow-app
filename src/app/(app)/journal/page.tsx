@@ -319,7 +319,7 @@ export default function JournalPage() {
                   const hasAccounts = trade.accountIds && trade.accountIds.length > 0;
                   const firstAccountName = hasAccounts ? accounts[trade.accountIds[0]]?.name || 'N/A' : 'N/A';
                   const remainingAccounts = hasAccounts ? trade.accountIds.length - 1 : 0;
-                  const pnl = hasAccounts ? (accounts[trade.accountIds[0]]?.balance || 0) * 0.01 * trade.rr : 0;
+                  const pnl = hasAccounts ? (accounts[trade.accountIds[0]]?.balance || 0) * 0.01 * (trade.rr || 0) : 0;
 
                   return (
                     <TableRow key={trade.id}>
@@ -345,10 +345,10 @@ export default function JournalPage() {
                       </TableCell>
                       <TableCell
                         className={
-                          trade.rr >= 0 ? "text-green-400" : "text-red-400"
+                          (trade.rr || 0) >= 0 ? "text-green-400" : "text-red-400"
                         }
                       >
-                        {trade.rr.toFixed(2)}R
+                        {(trade.rr || 0).toFixed(2)}R
                       </TableCell>
                       <TableCell>{trade.setup}</TableCell>
                        <TableCell className="text-center">
@@ -406,8 +406,8 @@ export default function JournalPage() {
                         </div>
                          <div className="space-y-1">
                             <p className="text-muted-foreground">Outcome (R:R)</p>
-                            <p className={cn("font-medium", viewingTrade.rr >= 0 ? 'text-green-400' : 'text-red-400')}>
-                                {viewingTrade.rr.toFixed(2)}R
+                            <p className={cn("font-medium", (viewingTrade.rr || 0) >= 0 ? 'text-green-400' : 'text-red-400')}>
+                                {(viewingTrade.rr || 0).toFixed(2)}R
                             </p>
                         </div>
                          <div className="space-y-1">
@@ -428,7 +428,7 @@ export default function JournalPage() {
                             {viewingTrade.accountIds.map(accId => {
                                 const account = accounts[accId];
                                 if (!account) return null;
-                                const pnl = (account.balance * 0.01) * viewingTrade.rr;
+                                const pnl = (account.balance * 0.01) * (viewingTrade.rr || 0);
                                 return (
                                     <div key={accId} className="flex justify-between items-center text-sm">
                                         <span className="font-medium">{account.name}</span>
