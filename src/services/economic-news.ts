@@ -23,7 +23,7 @@ const FinnhubEventSchema = z.object({
     event: z.string().optional(),
     impact: z.string().optional(),
     prev: z.number().nullable().optional(),
-    time: z.string().optional(),
+    time: z.number().optional(), // Expecting a UNIX timestamp (number)
 });
 
 const FinnhubResponseSchema = z.object({
@@ -58,7 +58,8 @@ export async function getEconomicNews(from: string, to: string): Promise<Economi
         return parsedData.data.economicCalendar
             .filter(e => e.time && e.event && e.country && e.impact) // Filter out events with missing essential data
             .map(event => ({
-                date: new Date(event.time!).toISOString(), // Assuming time is in a format Date can parse
+                // Correctly handle UNIX timestamp (seconds to milliseconds)
+                date: new Date(event.time! * 1000).toISOString(), 
                 country: event.country!,
                 event: event.event!,
                 impact: event.impact!,
