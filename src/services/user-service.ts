@@ -1,8 +1,9 @@
 
 'use server';
 
-import { db } from '@/lib/firebase-admin';
 import { z } from 'zod';
+import { doc, writeBatch, type Firestore } from 'firebase/firestore';
+
 
 const ChecklistItemSchema = z.object({
     id: z.string(),
@@ -23,15 +24,15 @@ const UserProfileSchema = z.object({
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
-export async function followUser(currentUserId: string, targetUserId: string) {
+export async function followUser(db: Firestore, currentUserId: string, targetUserId: string) {
     if (currentUserId === targetUserId) {
         throw new Error("You cannot follow yourself.");
     }
 
-    const batch = db.batch();
+    const batch = writeBatch(db);
 
-    const followingRef = db.collection('users').doc(currentUserId).collection('following').doc(targetUserId);
-    const followerRef = db.collection('users').doc(targetUserId).collection('followers').doc(currentUserId);
+    const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+    const followerRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
 
     batch.set(followingRef, { timestamp: new Date() });
     batch.set(followerRef, { timestamp: new Date() });
@@ -39,11 +40,11 @@ export async function followUser(currentUserId: string, targetUserId: string) {
     await batch.commit();
 }
 
-export async function unfollowUser(currentUserId: string, targetUserId:string) {
-    const batch = db.batch();
+export async function unfollowUser(db: Firestore, currentUserId: string, targetUserId:string) {
+    const batch = writeBatch(db);
 
-    const followingRef = db.collection('users').doc(currentUserId).collection('following').doc(targetUserId);
-    const followerRef = db.collection('users').doc(targetUserId).collection('followers').doc(currentUserId);
+    const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+    const followerRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
 
     batch.delete(followingRef);
     batch.delete(followerRef);

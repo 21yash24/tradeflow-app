@@ -394,13 +394,13 @@ export default function UserProfilePage() {
             toast({ title: 'Please log in to follow users.', variant: 'destructive'});
             return;
         };
-        await followUser(currentUser.uid, userId);
+        await followUser(db, currentUser.uid, userId);
         toast({ title: "Followed", description: `You are now following ${profileUser?.displayName}.` });
     };
 
     const handleUnfollow = async () => {
         if (!currentUser) return;
-        await unfollowUser(currentUser.uid, userId);
+        await unfollowUser(db, currentUser.uid, userId);
         toast({ title: "Unfollowed", description: `You are no longer following ${profileUser?.displayName}.` });
     };
 

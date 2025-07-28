@@ -89,7 +89,7 @@ const CommunityPost = React.memo(({ post, onPostUpdated }: { post: Post; onPostU
             return;
         }
         try {
-            await followUser(user.uid, post.authorId);
+            await followUser(db, user.uid, post.authorId);
             toast({ title: "Success", description: `You are now following ${post.authorName}.` });
         } catch (error) {
             console.error("Error following user:", error);
