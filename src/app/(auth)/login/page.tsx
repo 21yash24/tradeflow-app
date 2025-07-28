@@ -62,7 +62,7 @@ function ForgotPasswordDialog() {
     return (
          <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                 <button className="ml-auto inline-block text-xs underline">
+                 <button type="button" className="ml-auto inline-block text-xs underline">
                     Forgot your password?
                 </button>
             </DialogTrigger>

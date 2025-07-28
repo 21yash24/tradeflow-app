@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { auth, db } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
+import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -100,7 +101,7 @@ export default function SignupPage() {
                             {form.formState.errors.password && <p className="text-xs text-red-500">{form.formState.errors.password.message}</p>}
                         </div>
                         <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading ? "Creating Account..." : "Create Account"}
+                            {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Creating Account...</> : "Create Account"}
                         </Button>
                     </form>
                     <div className="mt-4 text-center text-sm">

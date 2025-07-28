@@ -9,7 +9,7 @@ export const TradeFlowLogo = (props: SVGProps<SVGSVGElement>) => (
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className={props.className}
+        {...props}
     >
         <path d="M2 12h5" />
         <path d="M7 7l5 5-5 5" />
