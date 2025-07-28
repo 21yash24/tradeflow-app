@@ -475,7 +475,7 @@ export default function JournalPage() {
                            <Edit className="h-4 w-4" />
                            <span className="sr-only">Edit Trade</span>
                         </Button>
-                        <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade!.id)}>
+                        <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade.id)}>
                             <Trash2 className="h-4 w-4" />
                             <span className="sr-only">Delete Trade</span>
                         </Button>
@@ -489,4 +489,3 @@ export default function JournalPage() {
   );
 }
 
-    
