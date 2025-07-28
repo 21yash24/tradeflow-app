@@ -1,22 +1,19 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit, FileText, Image as ImageIcon, ArrowRight, Lightbulb, TestTubeDiagonal, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit, FileText, Image as ImageIcon, ArrowRight, Lightbulb, ShieldCheck, Upload, AlertCircle } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, Pie, PieChart, RadialBar, RadialBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import { useForm, useForm as useHookForm } from 'react-hook-form';
+import { useForm as useHookForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { analyzeStrategy, type StrategyAnalysis } from '@/ai/flows/strategy-analyst-flow';
+import { analyzeMarket, type MarketAnalysis } from '@/ai/flows/market-analyzer-flow';
 import { Form, FormControl, FormField, FormItem, FormMessage, FormDescription } from '@/components/ui/form';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
@@ -142,7 +139,7 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
                             <p className="text-sm text-muted-foreground text-center py-4">No accounts found. Create one below.</p>
                         )}
                     </div>
-                    <Separator />
+                    
                      <h3 className="font-semibold text-lg">{editingAccount ? "Edit Account" : "Create New Account"}</h3>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(handleAccountSubmit)} className="space-y-4">
@@ -151,7 +148,7 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <Label>Account Name</Label>
+                                        
                                         <FormControl>
                                             <Input placeholder="e.g., Prop Firm Challenge" {...field} />
                                         </FormControl>
@@ -164,9 +161,9 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
                                 name="balance"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <Label>Starting Balance ($)</Label>
+                                        
                                         <FormControl>
-                                            <Input type="number" placeholder="100000" {...field} />
+                                            <Input type="number" placeholder="Starting Balance" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -177,9 +174,9 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
                                 name="riskPerTrade"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <Label>Risk Amount Per Trade ($)</Label>
+                                        
                                         <FormControl>
-                                            <Input type="number" placeholder="e.g., 500" value={field.value ?? ''} {...field} />
+                                            <Input type="number" placeholder="Risk Amount Per Trade ($)" value={field.value ?? ''} {...field} />
                                         </FormControl>
                                         <FormDescription>
                                             Optional. If empty, P/L will be calculated as 1% of the balance per R.
@@ -663,31 +660,33 @@ const PerformanceDashboard = () => {
     )
 }
 
-const strategyFormSchema = z.object({
-  strategy: z.string().min(10, { message: 'Please describe your strategy in more detail.' }),
-  pair: z.string(),
-  timeframe: z.string(),
-});
-
-const AiStrategyAnalyst = () => {
-    const [results, setResults] = useState<StrategyAnalysis | null>(null);
+const AiMarketAnalyst = () => {
+    const [results, setResults] = useState<MarketAnalysis | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const form = useForm<z.infer<typeof strategyFormSchema>>({
-        resolver: zodResolver(strategyFormSchema),
-        defaultValues: {
-            strategy: '',
-            pair: 'EUR/USD',
-            timeframe: '4H',
-        },
-    });
-
-    const handleRunAnalysis = async (values: z.infer<typeof strategyFormSchema>) => {
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    
+    const handleRunAnalysis = async () => {
+        if (!imagePreview) {
+            toast({ title: 'No Image', description: 'Please upload a chart image first.', variant: 'destructive'});
+            return;
+        }
         setIsLoading(true);
         setResults(null);
         try {
-            const result = await analyzeStrategy(values);
+            const result = await analyzeMarket({ photoDataUri: imagePreview });
             setResults(result);
         } catch (error) {
             console.error("Error running analysis:", error);
@@ -699,129 +698,77 @@ const AiStrategyAnalyst = () => {
 
     return (
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Define Your Strategy</CardTitle>
-                    <CardDescription>Describe your trading strategy in plain English. The more detail, the better the AI analysis.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleRunAnalysis)} className="space-y-4">
-                        <FormField
-                            control={form.control}
-                            name="strategy"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <Label htmlFor="strategy">Trading Strategy</Label>
-                                    <Textarea 
-                                        id="strategy" 
-                                        placeholder="e.g., 'Buy when the 50 EMA crosses above the 200 EMA on the 4H chart. Place stop-loss 20 pips below the entry and take profit at 1:2 risk/reward.'" 
-                                        className="min-h-[120px]" 
-                                        {...field}
-                                    />
-                                     <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                       
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="pair"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <Label>Intended Currency Pair</Label>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="EUR/USD">EUR/USD</SelectItem>
-                                                <SelectItem value="GBP/JPY">GBP/JPY</SelectItem>
-                                                <SelectItem value="XAU/USD">XAU/USD</SelectItem>
-                                                <SelectItem value="US30">US30</SelectItem>
-                                                <SelectItem value="NAS100">NAS100</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="timeframe"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <Label>Primary Timeframe</Label>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="1H">1 Hour</SelectItem>
-                                                <SelectItem value="4H">4 Hours</SelectItem>
-                                                <SelectItem value="1D">Daily</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </FormItem>
-                                )}
-                            />
+             <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                className="hidden"
+                accept="image/*"
+            />
+            <Card 
+                className={cn(
+                    "border-dashed border-2 hover:border-primary transition-colors cursor-pointer",
+                    imagePreview && "border-solid"
+                )}
+                onClick={() => fileInputRef.current?.click()}
+            >
+                <CardContent className="p-6">
+                    {imagePreview ? (
+                         <div className="relative w-full h-80 rounded-md overflow-hidden">
+                             <Image src={imagePreview} alt="Chart preview" layout="fill" objectFit="contain" />
+                         </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground h-48">
+                            <Upload className="h-10 w-10" />
+                            <h3 className="text-lg font-medium">Upload a Chart Screenshot</h3>
+                            <p>Click here to select an image of a market chart for analysis.</p>
                         </div>
-                        <div className="flex justify-end">
-                            <Button type="submit" disabled={isLoading}>
-                                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</> : <><BrainCircuit className="mr-2 h-4 w-4" />Analyze Strategy</>}
-                            </Button>
-                        </div>
-                    </form>
-                    </Form>
+                    )}
                 </CardContent>
             </Card>
+
+            <div className="flex justify-end">
+                <Button onClick={handleRunAnalysis} disabled={isLoading || !imagePreview}>
+                    {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</> : <><BrainCircuit className="mr-2 h-4 w-4" />Analyze Market</>}
+                </Button>
+            </div>
 
             {isLoading && 
                 <div className="flex flex-col items-center justify-center text-center gap-4 p-8 rounded-lg border border-dashed">
                     <Loader2 className="h-10 w-10 animate-spin text-primary" />
                     <h3 className="text-xl font-semibold">AI Analysis in Progress</h3>
-                    <p className="text-muted-foreground">Please wait while our AI mentor reviews your strategy...</p>
+                    <p className="text-muted-foreground">Please wait while our AI mentor reviews your chart...</p>
                 </div>
             }
 
             {results && (
                  <Card>
                     <CardHeader>
-                        <CardTitle>AI Strategy Analysis</CardTitle>
-                        <CardDescription>Here is a critique of your strategy from the AI trading mentor.</CardDescription>
+                        <CardTitle>AI Market Analysis</CardTitle>
+                        <CardDescription>Here is a review of your chart from the AI trading mentor.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <Alert>
-                            <Lightbulb className="h-4 w-4" />
-                            <AlertTitle>Summary</AlertTitle>
-                            <AlertDescription>{results.summary}</AlertDescription>
-                        </Alert>
-                        <div className="grid md:grid-cols-2 gap-4">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center text-lg gap-2"><ShieldCheck className="text-primary"/> Clarity & Completeness</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-muted-foreground">{results.clarityAndCompleteness}</p>
-                                </CardContent>
-                            </Card>
-                             <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center text-lg gap-2"><TestTubeDiagonal className="text-destructive"/> Potential Risks</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-muted-foreground">{results.potentialRisks}</p>
-                                </CardContent>
-                            </Card>
-                        </div>
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center text-lg gap-2"><Lightbulb className="text-yellow-400"/> Suggested Improvements</CardTitle>
+                                <CardTitle className="flex items-center text-lg gap-2"><Lightbulb className="text-yellow-400"/> Market Insights</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-muted-foreground">{results.suggestedImprovements}</p>
+                                <p className="text-muted-foreground whitespace-pre-wrap">{results.marketInsights}</p>
                             </CardContent>
                         </Card>
+                         <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center text-lg gap-2"><BrainCircuit className="text-primary"/> Potential Biases</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-muted-foreground whitespace-pre-wrap">{results.potentialBiases}</p>
+                            </CardContent>
+                        </Card>
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Disclaimer</AlertTitle>
+                            <AlertDescription>{results.disclaimer}</AlertDescription>
+                        </Alert>
                     </CardContent>
                  </Card>
             )}
@@ -849,16 +796,18 @@ export default function AnalyticsPage() {
                     </TabsTrigger>
                     <TabsTrigger value="ai-analyst">
                         <BrainCircuit className="mr-2" />
-                        AI Strategy Analyst
+                        AI Market Analyst
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="performance" className="mt-6">
                    <PerformanceDashboard />
                 </TabsContent>
                 <TabsContent value="ai-analyst" className="mt-6">
-                    <AiStrategyAnalyst />
+                    <AiMarketAnalyst />
                 </TabsContent>
             </Tabs>
         </div>
     );
 }
+
+    
