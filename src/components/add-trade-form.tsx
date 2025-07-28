@@ -48,12 +48,12 @@ type Account = {
 }
 
 const formSchema = z.object({
-  accountId: z.string().min(1, "Account is required."),
+  accountIds: z.array(z.string()).min(1, "At least one account is required."),
   pair: z.string().min(1, "Currency pair is required."),
   date: z.date({ required_error: "A date is required." }),
   type: z.enum(["buy", "sell"]),
-  pnl: z.coerce.number(),
-  rr: z.coerce.number().describe('The risk/reward ratio or loss outcome.'),
+  rr: z.coerce.number(),
+  pnl: z.coerce.number().optional(), // PNL is now calculated on submission, so it's optional here
   setup: z.string().min(1, "Trading setup is required."),
   notes: z.string().optional(),
   confidence: z.number().min(0).max(100).default(50),
@@ -61,13 +61,17 @@ const formSchema = z.object({
   screenshot: z.string().optional(),
 });
 
+
+export type AddTradeFormValues = z.infer<typeof formSchema>;
 // We infer the type from the schema and add the id
-export type Trade = z.infer<typeof formSchema> & { id: string; userId: string; };
+export type Trade = Omit<AddTradeFormValues, 'accountIds'> & { id: string; userId: string; accountId: string; pnl: number };
+
 
 type AddTradeFormProps = {
-  onSubmit: (values: Omit<Trade, 'id' | 'userId'>) => void;
+  onSubmit: (values: AddTradeFormValues) => void;
   onBack: () => void;
-  initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date };
+  initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date, accountIds: string[] };
+  accounts: Account[];
 };
 
 
@@ -164,23 +168,18 @@ function PreTradeChecklist({ onContinue, isEditMode }: { onContinue: () => void,
 }
 
 
-function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
+function AddTradeForm({ onSubmit, onBack, initialData, accounts }: AddTradeFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [user] = useAuthState(auth);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
+  const isEditMode = !!initialData;
   
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<AddTradeFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData ? {
         ...initialData,
-        // In edit mode, pnl is already set, rr can be inferred or defaulted
-        rr: initialData.rr ?? (initialData.pnl > 0 ? 1 : -1),
     } : {
-      accountId: "",
+      accountIds: accounts.length > 0 ? [accounts[0].id] : [],
       pair: "",
       type: "buy",
-      pnl: 0,
       rr: 2, // Default to a 1:2 R:R
       setup: "",
       notes: "",
@@ -190,49 +189,10 @@ function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
     },
   });
 
-   useEffect(() => {
-        if (user) {
-            const q = query(collection(db, "accounts"), where("userId", "==", user.uid));
-            const unsubscribe = onSnapshot(q, (snapshot) => {
-                const accountsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Account[];
-                setAccounts(accountsData);
-                if (accountsData.length > 0 && !form.getValues("accountId")) {
-                    form.setValue("accountId", accountsData[0].id);
-                }
-                setIsLoadingAccounts(false);
-            });
-            return () => unsubscribe();
-        } else {
-             setIsLoadingAccounts(false);
-        }
-    }, [user, form]);
-
-
   const screenshotValue = form.watch("screenshot");
-  const selectedAccountId = form.watch("accountId");
-  const selectedRR = form.watch("rr");
 
-  useEffect(() => {
-    if (isEditMode) return; // Don't auto-calculate PNL when editing
-    
-    const account = accounts.find(acc => acc.id === selectedAccountId);
-    if (!account) return;
-    
-    const riskAmount = account.balance * 0.01; // 1% risk
-    let calculatedPnl = 0;
-    
-    calculatedPnl = riskAmount * selectedRR;
-
-    form.setValue("pnl", parseFloat(calculatedPnl.toFixed(2)));
-
-  }, [selectedAccountId, selectedRR, accounts, form]);
-
-  const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    const submissionData = {
-        ...values,
-        date: format(values.date, 'yyyy-MM-dd'),
-    };
-    onSubmit(submissionData as any);
+  const handleSubmit = (values: AddTradeFormValues) => {
+    onSubmit(values);
     form.reset();
   };
 
@@ -247,31 +207,48 @@ function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
     }
   };
 
-  const isEditMode = !!initialData;
-
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
         <FormField
             control={form.control}
-            name="accountId"
+            name="accountIds"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Trading Account</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                    <FormControl>
-                    <SelectTrigger disabled={isLoadingAccounts}>
-                        <SelectValue placeholder={isLoadingAccounts ? "Loading accounts..." : "Select an account"} />
-                    </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                        {accounts.map(acc => (
-                             <SelectItem key={acc.id} value={acc.id}>{acc.name} (${acc.balance.toLocaleString()})</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <FormMessage />
+                    <FormLabel>Trading Account(s)</FormLabel>
+                    <div className="space-y-2 rounded-md border p-4">
+                        {accounts.length > 0 ? accounts.map(account => (
+                           <FormField
+                            key={account.id}
+                            control={form.control}
+                            name="accountIds"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                    <FormControl>
+                                        <Checkbox
+                                            checked={field.value?.includes(account.id)}
+                                            onCheckedChange={(checked) => {
+                                                if (isEditMode) return; // Disallow changing accounts in edit mode
+                                                return checked
+                                                    ? field.onChange([...(field.value || []), account.id])
+                                                    : field.onChange(field.value?.filter(id => id !== account.id))
+                                            }}
+                                            disabled={isEditMode && !field.value?.includes(account.id)}
+                                        />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">
+                                        {account.name} (${account.balance.toLocaleString()})
+                                    </FormLabel>
+                                </FormItem>
+                            )}
+                           />
+                        )) : (
+                            <p className="text-sm text-muted-foreground">No accounts found. Please create one in the Analytics tab.</p>
+                        )}
+                    </div>
+                     {isEditMode && <FormDescription>Cannot change account when editing.</FormDescription>}
+                    <FormMessage />
                 </FormItem>
             )}
         />
@@ -364,34 +341,17 @@ function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
                         type="number" 
                         step="0.1"
                         placeholder="e.g., 2.5 or -1" 
-                        {...field} 
-                        disabled={isEditMode}
-                        onChange={event => field.onChange(event.target.value === '' ? '' : parseFloat(event.target.value))}
+                        {...field}
                     />
                 </FormControl>
                 <FormDescription>
-                    Enter your profit or loss as an R-multiple. (e.g., 2 for a 2R win, -1 for a 1R loss)
+                    Enter profit/loss as an R-multiple. (e.g., 2 for 2R win, -1 for 1R loss)
                 </FormDescription>
-                {isEditMode && <FormDescription>P/L cannot be changed in edit mode.</FormDescription>}
               <FormMessage />
             </FormItem>
           )}
         />
         </div>
-        
-        <FormField
-            control={form.control}
-            name="pnl"
-            render={({ field }) => (
-                <FormItem className="hidden">
-                    <FormLabel>P/L ($)</FormLabel>
-                    <FormControl>
-                        <Input type="number" readOnly {...field} />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
 
         <FormField
           control={form.control}
@@ -487,7 +447,7 @@ function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
         <div className="flex justify-between pt-4">
             {!isEditMode && <Button type="button" variant="ghost" onClick={onBack}>Back</Button>}
             <Button type="submit">
-                {isEditMode ? 'Save Changes' : 'Add Trade'}
+                {isEditMode ? 'Save Changes' : 'Add Trade(s)'}
             </Button>
         </div>
       </form>
@@ -498,10 +458,12 @@ function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
 export function AddTradeFlow({ 
     onSubmit, 
     initialData,
+    accounts,
     onDone,
 }: { 
-    onSubmit: (values: Omit<Trade, 'id' | 'userId'>) => void,
-    initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date },
+    onSubmit: (values: AddTradeFormValues) => void,
+    initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date, accountIds: string[] },
+    accounts: Account[],
     onDone: () => void,
 }) {
     const [step, setStep] = useState(initialData ? 2 : 1);
@@ -514,7 +476,6 @@ export function AddTradeFlow({
                 onSubmit={onSubmit} 
                 onBack={() => setStep(1)} 
                 initialData={initialData} 
+                accounts={accounts}
             />;
 }
-
-    

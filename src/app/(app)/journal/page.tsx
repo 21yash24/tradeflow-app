@@ -23,13 +23,13 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { AddTradeFlow, type Trade } from "@/components/add-trade-form";
+import { AddTradeFlow, type Trade, type AddTradeFormValues } from "@/components/add-trade-form";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { analyzeTrade, TradeAnalysis } from "@/ai/flows/trade-analyst-flow";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useToast } from "@/hooks/use-toast";
 import { parseISO, format } from "date-fns";
@@ -117,6 +117,9 @@ export default function JournalPage() {
         const tradesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Trade[];
         setTrades(tradesData);
         setIsLoadingTrades(false);
+      }, (error) => {
+          console.error("Error fetching trades:", error);
+          setIsLoadingTrades(false);
       });
 
       return () => {
@@ -137,45 +140,77 @@ export default function JournalPage() {
       setViewingTrade(null);
       const tradeWithDate = {
           ...trade,
-          // The form expects a Date object, but Firestore stores it as a string.
-          // The `add-trade-form` now handles string-to-date conversion on its own
           date: parseISO(trade.date),
+          accountIds: [trade.accountId],
       }
       setEditingTrade(tradeWithDate as any);
       setTradeDialogOpen(true);
   }
 
-  const handleTradeSubmit = async (tradeData: Omit<Trade, 'id' | 'userId'>) => {
+  const handleTradeSubmit = async (values: AddTradeFormValues) => {
     if (!user) return;
     
-    if (editingTrade) { // Update existing trade
+    // This is for editing an existing trade
+    if (editingTrade) {
         const tradeRef = doc(db, "trades", editingTrade.id);
+        const accountId = values.accountIds[0];
+        const account = accounts[accountId];
+        if (!account) {
+            toast({ title: "Error", description: "Selected account not found.", variant: "destructive" });
+            return;
+        }
+
+        const riskAmount = account.balance * 0.01;
+        const calculatedPnl = riskAmount * values.rr;
+
         try {
             await updateDoc(tradeRef, {
-                ...tradeData,
+                ...values,
+                pnl: parseFloat(calculatedPnl.toFixed(2)),
+                accountId: accountId, // Keep it as a single accountId for updates
                 userId: user.uid,
+                date: format(values.date, 'yyyy-MM-dd'),
             });
             toast({ title: "Trade Updated", description: "Your changes have been saved." });
         } catch (error) {
             console.error("Error updating trade:", error);
             toast({ title: "Error", description: "Could not update your trade.", variant: "destructive" });
         }
-    } else { // Add new trade
-        const newTradeWithUser = {
-            ...tradeData,
-            userId: user.uid,
-        };
+    } else { // This is for adding one or more new trades
+        const batch = writeBatch(db);
+        
+        values.accountIds.forEach(accountId => {
+            const account = accounts[accountId];
+            if (!account) return;
+
+            const riskAmount = account.balance * 0.01;
+            const calculatedPnl = riskAmount * values.rr;
+
+            const newTradeDocRef = doc(collection(db, "trades"));
+
+            const newTradeData = {
+                ...values,
+                userId: user.uid,
+                accountId: accountId, // The specific account for this trade doc
+                pnl: parseFloat(calculatedPnl.toFixed(2)),
+                date: format(values.date, 'yyyy-MM-dd'),
+            };
+            delete (newTradeData as any).accountIds; // Don't save the array to the doc
+
+            batch.set(newTradeDocRef, newTradeData);
+        });
+
         try {
-            await addDoc(collection(db, "trades"), newTradeWithUser);
+            await batch.commit();
             toast({
-                title: "Trade Logged",
-                description: "Your trade has been successfully saved to your journal.",
+                title: "Trade(s) Logged",
+                description: `Successfully saved ${values.accountIds.length} trade(s) to your journal.`,
             });
         } catch (error) {
-            console.error("Error saving trade to Firestore:", error);
-            toast({
+             console.error("Error saving trades to Firestore:", error);
+             toast({
                 title: "Error",
-                description: "There was a problem saving your trade. Please try again.",
+                description: "There was a problem saving your trades. Please try again.",
                 variant: "destructive",
             });
         }
@@ -246,12 +281,13 @@ export default function JournalPage() {
             <DialogHeader>
               <DialogTitle>{editingTrade ? 'Edit Trade' : 'Add New Trade'}</DialogTitle>
               <DialogDescription>
-                {editingTrade ? 'Update the details of your trade.' : 'Follow the steps to log a new trade to your journal.'}
+                {editingTrade ? 'Update the details of your trade.' : 'Log a new trade. You can select multiple accounts.'}
               </DialogDescription>
             </DialogHeader>
             <AddTradeFlow 
                 onSubmit={handleTradeSubmit} 
                 initialData={editingTrade || undefined}
+                accounts={Object.values(accounts)}
                 onDone={() => {
                     setTradeDialogOpen(false);
                     setEditingTrade(null);
