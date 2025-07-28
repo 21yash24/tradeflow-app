@@ -32,7 +32,7 @@ const FinnhubResponseSchema = z.object({
 
 
 export async function getEconomicNews(from: string, to: string): Promise<EconomicEvent[]> {
-    const apiKey = process.env.FINNHUB_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY;
     if (!apiKey) {
         console.error("Finnhub API key is not configured.");
         return [];
