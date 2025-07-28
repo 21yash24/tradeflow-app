@@ -8,13 +8,14 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState, useRef } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { auth, db } from "@/lib/firebase";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { auth, db, messaging } from "@/lib/firebase";
+import { doc, onSnapshot, updateDoc, arrayUnion } from "firebase/firestore";
 import { type UserProfile, type ChecklistItem } from "@/services/user-service";
-import { Loader2, Trash2, PlusCircle, ListChecks, Sun, Moon, LogOut, Info } from "lucide-react";
+import { Loader2, Trash2, PlusCircle, ListChecks, Sun, Moon, LogOut, BellRing } from "lucide-react";
 import { useTheme } from "next-themes";
 import { signOut } from 'firebase/auth';
 import { useRouter } from "next/navigation";
+import { getToken } from "firebase/messaging";
 
 
 const defaultPreTradeChecklist: ChecklistItem[] = [
@@ -89,6 +90,7 @@ export default function SettingsPage() {
     const [profile, setProfile] = useState<Partial<UserProfile>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isEnablingNotifications, setIsEnablingNotifications] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -139,6 +141,41 @@ export default function SettingsPage() {
             setIsSaving(false);
         }
     };
+
+    const handleEnableNotifications = async () => {
+        if (!messaging || !user) {
+            toast({
+                title: "Error",
+                description: "Push notifications are not supported on this browser.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setIsEnablingNotifications(true);
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                const fcmToken = await getToken(messaging, { vapidKey: 'YOUR_VAPID_KEY' }); // You need to generate a VAPID key in Firebase Console
+                 if (fcmToken) {
+                    const userDocRef = doc(db, 'users', user.uid);
+                    await updateDoc(userDocRef, {
+                        fcmTokens: arrayUnion(fcmToken)
+                    });
+                    toast({ title: "Notifications Enabled", description: "You will now receive push notifications on this device." });
+                } else {
+                    throw new Error("Could not retrieve FCM token.");
+                }
+            } else {
+                 toast({ title: "Permission Denied", description: "You have blocked push notifications.", variant: "destructive" });
+            }
+        } catch(error) {
+            console.error("Error enabling notifications:", error);
+            toast({ title: "Error", description: "Could not enable push notifications. Check browser console for details.", variant: "destructive" });
+        } finally {
+            setIsEnablingNotifications(false);
+        }
+    }
     
     const handleLogout = async () => {
         await signOut(auth);
@@ -174,6 +211,19 @@ export default function SettingsPage() {
                     <Button variant="outline" onClick={() => setTheme('light')}><Sun className="mr-2 h-4 w-4"/>Light</Button>
                     <Button variant="outline" onClick={() => setTheme('dark')}><Moon className="mr-2 h-4 w-4"/>Dark</Button>
                 </div>
+            </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Notifications</CardTitle>
+                <CardDescription>Enable push notifications to receive price alerts on your device.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <Button onClick={handleEnableNotifications} disabled={isEnablingNotifications}>
+                    {isEnablingNotifications ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BellRing className="mr-2 h-4 w-4" />}
+                    Enable Push Notifications
+                </Button>
             </CardContent>
         </Card>
 

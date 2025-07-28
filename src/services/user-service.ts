@@ -21,6 +21,7 @@ const UserProfileSchema = z.object({
     createdAt: z.any(),
     preTradeChecklist: z.array(ChecklistItemSchema).optional(),
     disciplineChecklist: z.array(ChecklistItemSchema).optional(),
+    fcmTokens: z.array(z.string()).optional(),
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
