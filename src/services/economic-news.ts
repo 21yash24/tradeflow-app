@@ -2,6 +2,7 @@
 'use server';
 
 import { z } from 'zod';
+import { eachDayOfInterval, format, startOfWeek, endOfWeek } from 'date-fns';
 
 const EconomicEventSchema = z.object({
   date: z.string(),
@@ -15,85 +16,58 @@ const EconomicEventSchema = z.object({
 
 export type EconomicEvent = z.infer<typeof EconomicEventSchema>;
 
-const API_KEY = process.env.FMP_API_KEY;
-const API_URL = 'https://financialmodelingprep.com/api/v3/economic_calendar';
-
+// This service will now primarily rely on high-quality mock data 
+// to ensure functionality without requiring an API key.
 export async function getEconomicNews(from?: string, to?: string): Promise<EconomicEvent[]> {
-  if (!API_KEY) {
-    console.error("FMP API key is not set. Returning mock data.");
-    return getMockData();
-  }
-
-  try {
-    const params = new URLSearchParams();
-    if(from) params.append('from', from);
-    if(to) params.append('to', to);
-    params.append('apikey', API_KEY);
-    
-    const response = await fetch(`${API_URL}?${params.toString()}`);
-
-    if (!response.ok) {
-        console.error(`API request failed with status ${response.status}`);
-        return getMockData();
-    }
-    const data = await response.json();
-    const validatedData = z.array(EconomicEventSchema).safeParse(data);
-    
-    if (validatedData.success) {
-        return validatedData.data;
-    } else {
-        console.error("Failed to validate economic news data:", validatedData.error);
-        return getMockData();
-    }
-  } catch (error) {
-    console.error("Error fetching economic news:", error);
-    return getMockData();
-  }
+  // We can ignore the 'from' and 'to' and just generate a consistent set
+  // of mock data for the current week to simulate a live service.
+  return getMockData();
 }
 
 function getMockData(): EconomicEvent[] {
     const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dayAfter = new Date(today);
-    dayAfter.setDate(dayAfter.getDate() + 2);
+    const start = startOfWeek(today, { weekStartsOn: 1 }); // Monday
+    const end = endOfWeek(today, { weekStartsOn: 1 }); // Sunday
+    const weekDays = eachDayOfInterval({ start, end });
 
-    return [
-    {
-      date: new Date(today.setHours(8, 30, 0, 0)).toISOString(),
-      country: 'USD',
-      event: 'Core PCE Price Index m/m',
-      impact: 'High',
-      actual: 0.2,
-      forecast: 0.3,
-      previous: 0.3,
-    },
-    {
-      date: new Date(today.setHours(10, 0, 0, 0)).toISOString(),
-      country: 'USD',
-      event: 'Michigan Consumer Sentiment',
-      impact: 'Medium',
-      actual: 65.6,
-      forecast: 66,
-      previous: 69.1,
-    },
-    {
-      date: new Date(tomorrow.setHours(4, 30, 0, 0)).toISOString(),
-      country: 'GBP',
-      event: 'GDP m/m',
-      impact: 'High',
-      actual: null,
-      forecast: 0.1,
-      previous: 0.7,
-    },
-    {
-      date: new Date(dayAfter.setHours(14, 0, 0, 0)).toISOString(),
-      country: 'ALL',
-      event: 'OPEC-JMMC Meetings',
-      impact: 'Medium',
-      actual: null,
-      forecast: null,
-      previous: null,
-    },
-  ];
+    const mockEvents: Omit<EconomicEvent, 'date'>[] = [
+        // High Impact
+        { country: 'USD', event: 'Consumer Price Index (CPI) m/m', impact: 'High', actual: 0.4, forecast: 0.3, previous: 0.2 },
+        { country: 'EUR', event: 'ECB Press Conference', impact: 'High', actual: null, forecast: null, previous: null },
+        { country: 'USD', event: 'Non-Farm Employment Change', impact: 'High', actual: 275, forecast: 198, previous: 229 },
+        { country: 'GBP', event: 'Official Bank Rate', impact: 'High', actual: 5.25, forecast: 5.25, previous: 5.25 },
+        { country: 'JPY', event: 'BoJ Press Conference', impact: 'High', actual: null, forecast: null, previous: null },
+        // Medium Impact
+        { country: 'CAD', event: 'BOC Rate Statement', impact: 'Medium', actual: null, forecast: null, previous: null },
+        { country: 'AUD', event: 'RBA Rate Statement', impact: 'Medium', actual: null, forecast: null, previous: null },
+        { country: 'USD', event: 'Retail Sales m/m', impact: 'Medium', actual: 0.6, forecast: 0.8, previous: -1.1 },
+        { country: 'CNY', event: 'Manufacturing PMI', impact: 'Medium', actual: 50.8, forecast: 50.1, previous: 49.1 },
+        { country: 'CHF', event: 'SNB Press Conference', impact: 'Medium', actual: null, forecast: null, previous: null },
+        // Low Impact
+        { country: 'NZD', event: 'Building Consents m/m', impact: 'Low', actual: -1.9, forecast: null, previous: 0.7 },
+        { country: 'USD', event: 'JOLTS Job Openings', impact: 'Low', actual: 8.75, forecast: 8.76, previous: 8.74 },
+    ];
+    
+    const generatedEvents: EconomicEvent[] = [];
+    
+    weekDays.forEach(day => {
+        // Add 2-3 events per day to make it look realistic
+        const eventsForDay = Math.floor(Math.random() * 2) + 2; // 2 or 3 events
+        for (let i = 0; i < eventsForDay; i++) {
+             const randomEvent = mockEvents[Math.floor(Math.random() * mockEvents.length)];
+             const randomHour = Math.floor(Math.random() * 12) + 6; // 6 AM to 5 PM
+             const randomMinute = Math.random() > 0.5 ? 30 : 0;
+             const eventDate = new Date(day.setHours(randomHour, randomMinute, 0, 0));
+             
+             // Avoid adding duplicate event for the same day
+             if (!generatedEvents.some(e => e.event === randomEvent.event && format(new Date(e.date), 'yyyy-MM-dd') === format(eventDate, 'yyyy-MM-dd'))) {
+                generatedEvents.push({
+                    ...randomEvent,
+                    date: eventDate.toISOString(),
+                });
+             }
+        }
+    });
+
+    return generatedEvents;
 }

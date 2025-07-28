@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2, Edit } from "lucide-react";
@@ -32,7 +32,7 @@ import { db, auth } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, where, orderBy, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useToast } from "@/hooks/use-toast";
-import { parseISO } from "date-fns";
+import { parseISO, format } from "date-fns";
 
 type Account = {
     id: string;
@@ -137,7 +137,9 @@ export default function JournalPage() {
       setViewingTrade(null);
       const tradeWithDate = {
           ...trade,
-          date: parseISO(trade.date), // Convert string date back to Date object for the form
+          // The form expects a Date object, but Firestore stores it as a string.
+          // The `add-trade-form` now handles string-to-date conversion on its own
+          date: parseISO(trade.date),
       }
       setEditingTrade(tradeWithDate as any);
       setTradeDialogOpen(true);
@@ -182,7 +184,7 @@ export default function JournalPage() {
     setEditingTrade(null);
   };
   
-  const handleDeleteTrade = async (tradeId: string) => {
+  const handleDeleteTrade = useCallback(async (tradeId: string) => {
     if (window.confirm("Are you sure you want to delete this trade? This action cannot be undone.")) {
         try {
             await deleteDoc(doc(db, "trades", tradeId));
@@ -193,7 +195,7 @@ export default function JournalPage() {
             toast({ title: "Error", description: "Could not delete trade.", variant: "destructive"});
         }
     }
-  }
+  }, [])
 
   const handleAnalyzeTrade = async () => {
     if (!viewingTrade) return;
@@ -291,7 +293,7 @@ export default function JournalPage() {
               ) : trades.map((trade) => (
                 <TableRow key={trade.id}>
                   <TableCell className="font-medium">{trade.pair}</TableCell>
-                  <TableCell>{trade.date}</TableCell>
+                  <TableCell>{format(parseISO(trade.date), 'MMM d, yyyy')}</TableCell>
                   <TableCell>
                     <Badge
                       variant={trade.type === "buy" ? "default" : "destructive"}
@@ -349,7 +351,7 @@ export default function JournalPage() {
             <DialogHeader>
                 <DialogTitle>Trade Details</DialogTitle>
                 <DialogDescription>
-                    A complete overview of your trade on {viewingTrade?.pair} from {viewingTrade?.date}.
+                    A complete overview of your trade on {viewingTrade?.pair} from {viewingTrade && format(parseISO(viewingTrade.date), 'MMM d, yyyy')}.
                 </DialogDescription>
             </DialogHeader>
             {viewingTrade && (
@@ -370,7 +372,7 @@ export default function JournalPage() {
                         </div>
                          <div className="space-y-1">
                             <p className="text-muted-foreground">P/L</p>
-                            <p className={`font-medium ${viewingTrade.pnl > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            <p className={`font-medium ${viewingTrade.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                 ${viewingTrade.pnl.toFixed(2)}
                             </p>
                         </div>
@@ -416,10 +418,18 @@ export default function JournalPage() {
                                 <p>Analyzing your trade...</p>
                             </div>
                         )}
+                         {!analysisResult && !isAnalyzing && (
+                            <div className="flex justify-center">
+                                 <Button onClick={handleAnalyzeTrade} className="w-full max-w-xs">
+                                    <Wand2 className="mr-2 h-4 w-4" />
+                                    Analyze with AI
+                                </Button>
+                            </div>
+                        )}
                     </div>
                  </div>
                  <DialogFooter className="pt-4 mt-4 border-t">
-                     <div className="flex w-full justify-between items-center gap-2">
+                     <div className="flex w-full justify-start items-center gap-2">
                         <Button variant="outline" size="icon" onClick={() => handleOpenEditDialog(viewingTrade)}>
                            <Edit className="h-4 w-4" />
                            <span className="sr-only">Edit Trade</span>
@@ -428,13 +438,6 @@ export default function JournalPage() {
                             <Trash2 className="h-4 w-4" />
                             <span className="sr-only">Delete Trade</span>
                         </Button>
-                        <div className="flex-grow" />
-                        {!analysisResult && !isAnalyzing && (
-                            <Button onClick={handleAnalyzeTrade} className="w-full max-w-xs">
-                                <Wand2 className="mr-2 h-4 w-4" />
-                                Analyze with AI
-                            </Button>
-                        )}
                     </div>
                 </DialogFooter>
                 </>

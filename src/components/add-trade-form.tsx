@@ -53,6 +53,7 @@ const formSchema = z.object({
   date: z.date({ required_error: "A date is required." }),
   type: z.enum(["buy", "sell"]),
   pnl: z.coerce.number(),
+  rr: z.coerce.number().describe('The risk/reward ratio or loss outcome.'),
   setup: z.string().min(1, "Trading setup is required."),
   notes: z.string().optional(),
   confidence: z.number().min(0).max(100).default(50),
@@ -171,11 +172,16 @@ function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
+    defaultValues: initialData ? {
+        ...initialData,
+        // In edit mode, pnl is already set, rr can be inferred or defaulted
+        rr: initialData.rr ?? (initialData.pnl > 0 ? 1 : -1),
+    } : {
       accountId: "",
       pair: "",
       type: "buy",
       pnl: 0,
+      rr: 2, // Default to a 1:2 R:R
       setup: "",
       notes: "",
       confidence: 50,
@@ -203,6 +209,27 @@ function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
 
 
   const screenshotValue = form.watch("screenshot");
+  const selectedAccountId = form.watch("accountId");
+  const selectedRR = form.watch("rr");
+
+  useEffect(() => {
+    if (isEditMode) return; // Don't auto-calculate PNL when editing
+    
+    const account = accounts.find(acc => acc.id === selectedAccountId);
+    if (!account) return;
+    
+    const riskAmount = account.balance * 0.01; // 1% risk
+    let calculatedPnl = 0;
+    
+    if (selectedRR === -1) { // Loss
+        calculatedPnl = -riskAmount;
+    } else { // Win
+        calculatedPnl = riskAmount * selectedRR;
+    }
+
+    form.setValue("pnl", parseFloat(calculatedPnl.toFixed(2)));
+
+  }, [selectedAccountId, selectedRR, accounts, form, initialData]);
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     const submissionData = {
@@ -235,7 +262,7 @@ function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
             name="accountId"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Account</FormLabel>
+                <FormLabel>Trading Account</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
                     <SelectTrigger disabled={isLoadingAccounts}>
@@ -252,6 +279,7 @@ function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
                 </FormItem>
             )}
         />
+        <div className="grid grid-cols-2 gap-4">
         <FormField
           control={form.control}
           name="pair"
@@ -306,6 +334,8 @@ function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
             </FormItem>
           )}
         />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
         <FormField
           control={form.control}
           name="type"
@@ -327,19 +357,48 @@ function AddTradeForm({ onSubmit, onBack, initialData }: AddTradeFormProps) {
             </FormItem>
           )}
         />
-        <FormField
+         <FormField
           control={form.control}
-          name="pnl"
+          name="rr"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>P/L ($)</FormLabel>
-              <FormControl>
-                <Input type="number" placeholder="e.g., 150.75" {...field} />
-              </FormControl>
+              <FormLabel>Outcome (R:R)</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={String(field.value)} disabled={isEditMode}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select outcome" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="-1" className="text-red-500">Loss (-1R)</SelectItem>
+                  <SelectItem value="1">Win (1:1)</SelectItem>
+                  <SelectItem value="2">Win (1:2)</SelectItem>
+                  <SelectItem value="3">Win (1:3)</SelectItem>
+                  <SelectItem value="5">Win (1:5)</SelectItem>
+                  <SelectItem value="0">Break-Even</SelectItem>
+                </SelectContent>
+              </Select>
+              {isEditMode && <FormDescription>P/L cannot be changed in edit mode.</FormDescription>}
               <FormMessage />
             </FormItem>
           )}
         />
+        </div>
+        
+        <FormField
+            control={form.control}
+            name="pnl"
+            render={({ field }) => (
+                <FormItem className="hidden">
+                    <FormLabel>P/L ($)</FormLabel>
+                    <FormControl>
+                        <Input type="number" readOnly {...field} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
+
         <FormField
           control={form.control}
           name="setup"
