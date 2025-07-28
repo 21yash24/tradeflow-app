@@ -3,84 +3,99 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    // Helper function to check if the user is the owner of a document
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    // Users collection
+    // Users: Publicly readable, but only the user can write to their own document.
     match /users/{userId} {
-      // Anyone can read a user's public profile
-      allow read: if true;
-      // A user can only create their own profile document
-      allow create: if isOwner(userId);
-      // A user can only update their own profile document
-      allow update: if isOwner(userId);
-      // A user cannot delete their profile
-      allow delete: if false;
+      allow read;
+      allow write: if request.auth.uid == userId;
 
-      // Followers and Following sub-collections
+      // Followers/Following sub-collections
       match /followers/{followerId} {
-        // A user can create/delete a document in another user's followers list if the doc ID is their own UID.
-        allow write: if isOwner(followerId);
-        allow read: if isAuthenticated();
+        // A user can add/remove themselves from another user's followers list.
+        allow write: if request.auth.uid == followerId;
       }
-
       match /following/{followingId} {
-         // A user can only manage their own following list
-        allow write: if isOwner(userId);
-        allow read: if isAuthenticated();
+         // A user can only manage their own following list.
+        allow write: if request.auth.uid == userId;
       }
     }
     
-    // Trades, Accounts, Alerts, Discipline, Streaks
-    match /{collection}/{docId} {
-      // These collections can only be accessed by the user who owns them
-      allow read, write, delete: if isAuthenticated() && isOwner(request.resource.data.userId);
-      // Allow create if the user is authenticated and the new doc's userId is their own
-      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+    // Trades: Only accessible by the owner.
+    match /trades/{tradeId} {
+      allow read, write, delete: if request.auth.uid == resource.data.userId;
     }
     
-    // Community Posts
+    // Alerts: Only accessible by the owner.
+    match /alerts/{alertId} {
+        allow read, write, delete: if request.auth.uid == resource.data.userId;
+    }
+
+    // Accounts: Only accessible by the owner.
+    match /accounts/{accountId} {
+        allow read, write, delete: if request.auth.uid == resource.data.userId;
+    }
+    
+    // Discipline: Only accessible by the owner.
+    match /discipline/{disciplineId} {
+      allow read, write, delete: if request.auth.uid == resource.data.userId;
+    }
+    
+    // Streaks: Only accessible by the owner.
+    match /streaks/{streakId} {
+      // The streakId is the same as the userId
+      allow read, write: if request.auth.uid == streakId;
+    }
+    
+    // Posts: Readable by all, but with specific write conditions.
     match /posts/{postId} {
-      allow read: if true;
-      allow create: if isAuthenticated() && isOwner(request.resource.data.authorId);
+      // Any authenticated user can read any post or list of posts.
+      allow list, get: if request.auth != null;
 
-      // Allow author to update content, but anyone to update likes.
-      allow update: if isAuthenticated() && (
-        // Case 1: The user is the author, they can change content and imageUrl
-        (isOwner(resource.data.authorId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'imageUrl'])) ||
-        // Case 2: Any authenticated user can update likeCount and likedBy array.
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount', 'likedBy', 'commentCount']))
-      );
+      // Any authenticated user can create a post.
+      allow create: if request.auth != null;
+      
+      // A user can update their own post.
+      // Additionally, anyone can update the likeCount and likedBy fields for the like feature.
+      allow update: if (request.auth.uid == resource.data.authorId) || 
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount', 'likedBy']));
 
-      allow delete: if isAuthenticated() && isOwner(resource.data.authorId);
-      
-      // Comments and Likes sub-collections
-      match /comments/{commentId} {
-        allow read: if true;
-        allow create: if isAuthenticated() && isOwner(request.resource.data.authorId);
-        allow delete: if isAuthenticated() && isOwner(resource.data.authorId);
-      }
-      
+      // A user can only delete their own post.
+      allow delete: if request.auth.uid == resource.data.authorId;
+
+      // Sub-collections for likes and comments
       match /likes/{userId} {
-        allow read: if true;
-        allow create, delete: if isOwner(userId);
+        allow read, write: if request.auth.uid == userId;
+      }
+
+      match /comments/{commentId} {
+        allow read, create: if request.auth != null;
+        allow update, delete: if request.auth.uid == resource.data.authorId;
       }
     }
 
-    // Community Groups
+    // Groups: Readable by members, writable by admins.
     match /groups/{groupId} {
-      // TODO: Add more granular rules (e.g., only members can read private groups)
-      allow read: if isAuthenticated(); 
-      allow create: if isAuthenticated() && isOwner(request.resource.data.creatorId);
-      // Only the creator can update/delete a group for now
-      allow update, delete: if isAuthenticated() && isOwner(resource.data.creatorId);
+        // Check if the user is a member of the group
+        function isMember() {
+            return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+        }
+
+        // Check if the user is an admin of the group
+        function isAdmin() {
+            return get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin';
+        }
+
+        allow list: if request.auth != null; // Allow anyone to see the list of groups
+        allow get: if isMember() || get(/databases/$(database)/documents/groups/$(groupId)).data.isPrivate == false;
+        allow create: if request.auth != null;
+        allow update, delete: if isAdmin();
+      
+      // Group members sub-collection
+        match /members/{userId} {
+            allow read: if isMember();
+            // Allow users to join/leave (create/delete their own membership doc)
+            // Admins can add/remove others
+            allow write: if request.auth.uid == userId || isAdmin();
+        }
     }
   }
 }
