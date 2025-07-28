@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit } from 'lucide-react';
@@ -88,17 +88,17 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
         }
     }
     
-    const handleDeleteAccount = async (accountId: string) => {
+    const handleDeleteAccount = useCallback((accountId: string) => {
         if (window.confirm("Are you sure you want to delete this account? This will not delete its trades but they will be unassigned.")) {
             try {
-                await deleteDoc(doc(db, "accounts", accountId));
+                deleteDoc(doc(db, "accounts", accountId));
                 toast({ title: "Account Deleted", description: "The account has been removed." });
             } catch (error) {
                  console.error("Error deleting account:", error);
                  toast({ title: "Error", description: "Could not delete account.", variant: "destructive" });
             }
         }
-    }
+    }, [toast]);
 
     return (
         <Dialog onOpenChange={(isOpen) => !isOpen && setEditingAccount(null)}>
@@ -232,14 +232,14 @@ const PerformanceDashboard = () => {
             }
         }
         
-        const accountTrades = trades.filter(trade => trade.accountIds.includes(selectedAccount));
+        const accountTrades = trades.filter(trade => trade.accountIds && trade.accountIds.includes(selectedAccount));
         const currentAccount = accounts.find(acc => acc.id === selectedAccount);
         if (!currentAccount) return {
              totalTrades: 0, winningTrades: 0, losingTrades: 0, winRate: 0, totalPnl: 0,
              avgWin: 0, avgLoss: 0, profitFactor: 0, cumulativePnlData: [], pnlByPairData: [], tradesByDay: {}
         };
 
-        const calculatePnl = (trade: Trade) => (currentAccount.balance * 0.01) * trade.rr;
+        const calculatePnl = (trade: Trade) => (currentAccount.balance * 0.01) * (trade.rr || 0);
 
         const totalTrades = accountTrades.length;
         const winningTrades = accountTrades.filter(t => calculatePnl(t) > 0).length;
