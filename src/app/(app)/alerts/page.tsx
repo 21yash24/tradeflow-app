@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { db, auth } from '@/lib/firebase';
-import { collection, onSnapshot, query, where, addDoc, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -51,6 +51,8 @@ const CreateAlertForm = ({ onAlertCreated }: { onAlertCreated: () => void }) => 
         defaultValues: {
             pair: "EURUSD",
             direction: "above",
+            threshold: undefined,
+            notes: "",
         },
     });
 
@@ -203,13 +205,14 @@ export default function AlertsPage() {
                 setIsLoading(false);
             }, (error) => {
                 console.error("Error fetching alerts:", error);
+                toast({ title: 'Error', description: 'Could not fetch alerts.', variant: 'destructive' });
                 setIsLoading(false);
             });
             return () => unsubscribe();
         } else {
             setIsLoading(false);
         }
-    }, [user]);
+    }, [user, toast]);
 
     const handleUpdateAlert = async (id: string, data: Partial<PriceAlert>) => {
         const alertRef = doc(db, 'alerts', id);
