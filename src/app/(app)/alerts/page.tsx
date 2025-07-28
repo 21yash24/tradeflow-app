@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { PlusCircle, Loader2, Trash2, Bell, BellOff, ArrowUp, ArrowDown } from 'lucide-react';
+import { PlusCircle, Loader2, Trash2, Bell, BellOff, ArrowUp, ArrowDown, Pencil } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,14 +41,19 @@ const alertFormSchema = z.object({
   notes: z.string().optional(),
 });
 
-const CreateAlertForm = ({ onAlertCreated }: { onAlertCreated: () => void }) => {
-    const [user] = useAuthState(auth);
-    const { toast } = useToast();
-    const [isSubmitting, setIsSubmitting] = useState(false);
+type AlertFormValues = z.infer<typeof alertFormSchema>;
 
-    const form = useForm<z.infer<typeof alertFormSchema>>({
+const AlertForm = ({ onSubmit, onDone, initialData }: { onSubmit: (values: AlertFormValues) => Promise<void>; onDone: () => void; initialData?: Partial<PriceAlert> }) => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const form = useForm<AlertFormValues>({
         resolver: zodResolver(alertFormSchema),
-        defaultValues: {
+        defaultValues: initialData ? {
+            pair: initialData.pair,
+            threshold: initialData.threshold,
+            direction: initialData.direction,
+            notes: initialData.notes
+        } : {
             pair: "EURUSD",
             direction: "above",
             threshold: '' as any,
@@ -56,31 +61,23 @@ const CreateAlertForm = ({ onAlertCreated }: { onAlertCreated: () => void }) => 
         },
     });
 
-    const handleAlertSubmit = async (values: z.infer<typeof alertFormSchema>) => {
-        if (!user) return;
-        setIsSubmitting(true);
-        try {
-            await addDoc(collection(db, 'alerts'), {
-                ...values,
-                userId: user.uid,
-                active: true,
-                triggered: false,
-                createdAt: serverTimestamp(),
-            });
-            toast({ title: 'Alert Created', description: `You will be notified when ${values.pair} goes ${values.direction} ${values.threshold}.` });
-            form.reset({ pair: "EURUSD", direction: 'above', threshold: '' as any, notes: '' });
-            onAlertCreated();
-        } catch (error) {
-            console.error('Error creating alert:', error);
-            toast({ title: 'Error', description: 'Could not create alert.', variant: 'destructive' });
-        } finally {
-            setIsSubmitting(false);
+    useEffect(() => {
+        if (initialData) {
+            form.reset(initialData);
         }
+    }, [initialData, form]);
+
+
+    const handleSubmit = async (values: AlertFormValues) => {
+        setIsSubmitting(true);
+        await onSubmit(values);
+        setIsSubmitting(false);
+        onDone();
     };
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleAlertSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 <FormField
                     control={form.control}
                     name="pair"
@@ -143,8 +140,8 @@ const CreateAlertForm = ({ onAlertCreated }: { onAlertCreated: () => void }) => 
                 />
                 <DialogFooter>
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                        Create Alert
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : initialData ? <Pencil className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                        {initialData ? 'Save Changes' : 'Create Alert'}
                     </Button>
                 </DialogFooter>
             </form>
@@ -152,7 +149,7 @@ const CreateAlertForm = ({ onAlertCreated }: { onAlertCreated: () => void }) => 
     );
 };
 
-const AlertCard = ({ alert, onUpdate, onDelete }: { alert: PriceAlert; onUpdate: (id: string, data: Partial<PriceAlert>) => void; onDelete: (id: string) => void; }) => {
+const AlertCard = ({ alert, onUpdate, onDelete, onEdit }: { alert: PriceAlert; onUpdate: (id: string, data: Partial<PriceAlert>) => void; onDelete: (id: string) => void; onEdit: (alert: PriceAlert) => void; }) => {
     return (
         <Card className={cn("transition-all", !alert.active && "bg-muted/50", alert.triggered && "border-primary")}>
             <CardContent className="p-4 flex justify-between items-center">
@@ -174,6 +171,10 @@ const AlertCard = ({ alert, onUpdate, onDelete }: { alert: PriceAlert; onUpdate:
                         {alert.active ? <BellOff className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
                         <span className="sr-only">{alert.active ? 'Disable' : 'Enable'}</span>
                     </Button>
+                     <Button variant="ghost" size="icon" onClick={() => onEdit(alert)}>
+                        <Pencil className="h-5 w-5" />
+                        <span className="sr-only">Edit</span>
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => onDelete(alert.id)}>
                         <Trash2 className="h-5 w-5 text-destructive" />
                         <span className="sr-only">Delete</span>
@@ -189,7 +190,8 @@ export default function AlertsPage() {
     const { toast } = useToast();
     const [alerts, setAlerts] = useState<PriceAlert[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [editingAlert, setEditingAlert] = useState<PriceAlert | null>(null);
 
     useEffect(() => {
         if (user) {
@@ -214,7 +216,44 @@ export default function AlertsPage() {
         }
     }, [user, toast]);
 
-    const handleUpdateAlert = async (id: string, data: Partial<PriceAlert>) => {
+    const handleOpenDialog = (alert: PriceAlert | null = null) => {
+        setEditingAlert(alert);
+        setIsDialogOpen(true);
+    };
+
+    const handleAlertSubmit = async (values: AlertFormValues) => {
+        if (!user) return;
+
+        if (editingAlert) {
+            // Update existing alert
+            const alertRef = doc(db, 'alerts', editingAlert.id);
+            try {
+                await updateDoc(alertRef, values);
+                toast({ title: 'Alert Updated', description: 'Your alert has been successfully updated.' });
+            } catch (error) {
+                console.error('Error updating alert:', error);
+                toast({ title: 'Error', description: 'Could not update alert.', variant: 'destructive' });
+            }
+        } else {
+            // Create new alert
+            try {
+                await addDoc(collection(db, 'alerts'), {
+                    ...values,
+                    userId: user.uid,
+                    active: true,
+                    triggered: false,
+                    createdAt: serverTimestamp(),
+                });
+                toast({ title: 'Alert Created', description: `You will be notified when ${values.pair} goes ${values.direction} ${values.threshold}.` });
+            } catch (error) {
+                console.error('Error creating alert:', error);
+                toast({ title: 'Error', description: 'Could not create alert.', variant: 'destructive' });
+            }
+        }
+    };
+
+
+    const handleUpdateAlertStatus = async (id: string, data: Partial<PriceAlert>) => {
         const alertRef = doc(db, 'alerts', id);
         try {
             await updateDoc(alertRef, data);
@@ -251,21 +290,25 @@ export default function AlertsPage() {
                         Never miss a trading opportunity. Set alerts for key price levels.
                     </p>
                 </div>
-                 <Button onClick={() => setIsCreateOpen(true)}>
+                 <Button onClick={() => handleOpenDialog()}>
                     <PlusCircle className="mr-2" />
                     Create Alert
                 </Button>
             </div>
 
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Create a New Price Alert</DialogTitle>
+                        <DialogTitle>{editingAlert ? 'Edit Price Alert' : 'Create a New Price Alert'}</DialogTitle>
                         <DialogDescription>
-                            Get notified when a currency pair reaches your target price.
+                            {editingAlert ? 'Modify the details of your alert.' : 'Get notified when a currency pair reaches your target price.'}
                         </DialogDescription>
                     </DialogHeader>
-                    <CreateAlertForm onAlertCreated={() => setIsCreateOpen(false)} />
+                    <AlertForm 
+                        onSubmit={handleAlertSubmit} 
+                        onDone={() => setIsDialogOpen(false)}
+                        initialData={editingAlert || undefined}
+                    />
                 </DialogContent>
             </Dialog>
             
@@ -288,7 +331,7 @@ export default function AlertsPage() {
                             </div>
                         ) : (
                             activeAlerts.map(alert => (
-                                <AlertCard key={alert.id} alert={alert} onUpdate={handleUpdateAlert} onDelete={handleDeleteAlert} />
+                                <AlertCard key={alert.id} alert={alert} onUpdate={handleUpdateAlertStatus} onDelete={handleDeleteAlert} onEdit={handleOpenDialog}/>
                             ))
                         )}
                     </div>
@@ -307,7 +350,7 @@ export default function AlertsPage() {
                             </div>
                         ) : (
                             triggeredAlerts.map(alert => (
-                                <AlertCard key={alert.id} alert={alert} onUpdate={handleUpdateAlert} onDelete={handleDeleteAlert} />
+                                <AlertCard key={alert.id} alert={alert} onUpdate={handleUpdateAlertStatus} onDelete={handleDeleteAlert} onEdit={handleOpenDialog} />
                             ))
                         )}
                     </div>
