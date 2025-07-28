@@ -51,7 +51,7 @@ const CreateAlertForm = ({ onAlertCreated }: { onAlertCreated: () => void }) => 
         defaultValues: {
             pair: "EURUSD",
             direction: "above",
-            threshold: '' as any, // Changed from undefined
+            threshold: '' as any,
             notes: "",
         },
     });
@@ -101,7 +101,7 @@ const CreateAlertForm = ({ onAlertCreated }: { onAlertCreated: () => void }) => 
                         <FormItem>
                             <FormLabel>Price Threshold</FormLabel>
                             <FormControl>
-                                <Input type="number" step="any" placeholder="e.g., 1.08500" {...field} />
+                                <Input type="number" step="any" placeholder="e.g., 1.08500" {...field} value={field.value ?? ''} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -166,7 +166,7 @@ const AlertCard = ({ alert, onUpdate, onDelete }: { alert: PriceAlert; onUpdate:
                     </div>
                      {alert.notes && <p className="text-sm text-muted-foreground">{alert.notes}</p>}
                      <p className="text-xs text-muted-foreground pt-1">
-                        {alert.triggered && alert.triggeredAt ? `Triggered on ${format(alert.triggeredAt.toDate(), 'PPp')}` : `Created on ${format(alert.createdAt.toDate(), 'PPp')}`}
+                        {alert.triggered && alert.triggeredAt?.toDate ? `Triggered on ${format(alert.triggeredAt.toDate(), 'PPp')}` : (alert.createdAt?.toDate ? `Created on ${format(alert.createdAt.toDate(), 'PPp')}` : 'Creating...')}
                     </p>
                 </div>
                 <div className="flex items-center gap-1">
