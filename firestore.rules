@@ -3,99 +3,72 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users: Publicly readable, but only the user can write to their own document.
+    // Users can only read/write to their own profile.
+    // Any authenticated user can list the collection for search purposes.
     match /users/{userId} {
-      allow read;
-      allow write: if request.auth.uid == userId;
+      allow read, write: if request.auth.uid == userId;
+      allow list: if request.auth != null;
 
-      // Followers/Following sub-collections
+      // Allow any authenticated user to follow/unfollow others
       match /followers/{followerId} {
-        // A user can add/remove themselves from another user's followers list.
-        allow write: if request.auth.uid == followerId;
+        allow read, create, delete: if request.auth != null;
       }
       match /following/{followingId} {
-         // A user can only manage their own following list.
-        allow write: if request.auth.uid == userId;
+        allow read, create, delete: if request.auth != null;
       }
     }
-    
-    // Trades: Only accessible by the owner.
+
+    // Users can only read/write their own trades.
     match /trades/{tradeId} {
-      allow read, write, delete: if request.auth.uid == resource.data.userId;
+      allow read, write: if request.auth.uid == resource.data.userId;
     }
     
-    // Alerts: Only accessible by the owner.
-    match /alerts/{alertId} {
-        allow read, write, delete: if request.auth.uid == resource.data.userId;
-    }
-
-    // Accounts: Only accessible by the owner.
+    // Users can only manage their own accounts.
     match /accounts/{accountId} {
-        allow read, write, delete: if request.auth.uid == resource.data.userId;
+      allow read, write: if request.auth.uid == resource.data.userId;
     }
-    
-    // Discipline: Only accessible by the owner.
-    match /discipline/{disciplineId} {
-      allow read, write, delete: if request.auth.uid == resource.data.userId;
-    }
-    
-    // Streaks: Only accessible by the owner.
-    match /streaks/{streakId} {
-      // The streakId is the same as the userId
-      allow read, write: if request.auth.uid == streakId;
-    }
-    
-    // Posts: Readable by all, but with specific write conditions.
-    match /posts/{postId} {
-      // Any authenticated user can read any post or list of posts.
-      allow list, get: if request.auth != null;
 
-      // Any authenticated user can create a post.
+    // Users can only manage their own discipline entries.
+    match /discipline/{disciplineId} {
+      allow read, write: if request.auth.uid == resource.data.userId;
+    }
+    
+    // Users can only manage their own streak data.
+    match /streaks/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+
+    // Users can only manage their own price alerts.
+    match /alerts/{alertId} {
+        allow read, write: if request.auth.uid == resource.data.userId;
+    }
+
+    // Community Posts
+    match /posts/{postId} {
+      // Anyone logged in can read posts
+      allow read: if request.auth != null;
+      
+      // Anyone logged in can create posts
       allow create: if request.auth != null;
       
-      // A user can update their own post.
-      // Additionally, anyone can update the likeCount and likedBy fields for the like feature.
-      allow update: if (request.auth.uid == resource.data.authorId) || 
-                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount', 'likedBy']));
-
-      // A user can only delete their own post.
-      allow delete: if request.auth.uid == resource.data.authorId;
-
-      // Sub-collections for likes and comments
-      match /likes/{userId} {
-        allow read, write: if request.auth.uid == userId;
-      }
-
+      // Only the author can update most fields or delete the post
+      allow update, delete: if request.auth.uid == resource.data.authorId;
+      
+      // Allow any logged-in user to update ONLY the likeCount and likedBy fields
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['likeCount', 'likedBy']);
+                       
+      // Sub-collections for comments and likes
       match /comments/{commentId} {
         allow read, create: if request.auth != null;
         allow update, delete: if request.auth.uid == resource.data.authorId;
       }
-    }
 
-    // Groups: Readable by members, writable by admins.
-    match /groups/{groupId} {
-        // Check if the user is a member of the group
-        function isMember() {
-            return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
-        }
-
-        // Check if the user is an admin of the group
-        function isAdmin() {
-            return get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin';
-        }
-
-        allow list: if request.auth != null; // Allow anyone to see the list of groups
-        allow get: if isMember() || get(/databases/$(database)/documents/groups/$(groupId)).data.isPrivate == false;
-        allow create: if request.auth != null;
-        allow update, delete: if isAdmin();
-      
-      // Group members sub-collection
-        match /members/{userId} {
-            allow read: if isMember();
-            // Allow users to join/leave (create/delete their own membership doc)
-            // Admins can add/remove others
-            allow write: if request.auth.uid == userId || isAdmin();
-        }
+      match /likes/{userId} {
+        allow read, create: if request.auth.uid == userId;
+        allow delete: if request.auth.uid == userId;
+      }
     }
   }
 }
