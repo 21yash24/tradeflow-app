@@ -98,6 +98,8 @@ export default function SettingsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isEnablingNotifications, setIsEnablingNotifications] = useState(false);
+    
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
 
     useEffect(() => {
         if (user) {
@@ -164,20 +166,15 @@ export default function SettingsPage() {
             return;
         }
 
+        if (!vapidKey) {
+             toast({ title: "Configuration Needed", description: "VAPID key not set for push notifications.", variant: "destructive" });
+             return;
+        }
+
         setIsEnablingNotifications(true);
         try {
             const permission = await Notification.requestPermission();
             if (permission === 'granted') {
-                // IMPORTANT: Replace this with your actual VAPID key from Firebase Console
-                // Project settings > Cloud Messaging > Web configuration > Generate key pair
-                const vapidKey = "YOUR_VAPID_KEY_HERE"; 
-                if (vapidKey === "YOUR_VAPID_KEY_HERE") {
-                    console.warn("Please replace 'YOUR_VAPID_KEY_HERE' with your actual Firebase VAPID key in src/app/(app)/settings/page.tsx");
-                     toast({ title: "Configuration Needed", description: "VAPID key not set. See browser console.", variant: "destructive" });
-                     setIsEnablingNotifications(false);
-                     return;
-                }
-
                 const fcmToken = await getToken(messaging, { vapidKey }); 
                  if (fcmToken) {
                     const userDocRef = doc(db, 'users', user.uid);
@@ -242,10 +239,11 @@ export default function SettingsPage() {
                 <CardDescription>Enable push notifications to receive price alerts on your device.</CardDescription>
             </CardHeader>
             <CardContent>
-                 <Button onClick={handleEnableNotifications} disabled={isEnablingNotifications}>
+                 <Button onClick={handleEnableNotifications} disabled={isEnablingNotifications || !vapidKey}>
                     {isEnablingNotifications ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BellRing className="mr-2 h-4 w-4" />}
                     Enable Push Notifications
                 </Button>
+                {!vapidKey && <p className="text-xs text-muted-foreground mt-2">Push notifications are currently disabled by the site administrator.</p>}
             </CardContent>
         </Card>
 
@@ -302,5 +300,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    
