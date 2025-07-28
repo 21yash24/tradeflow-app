@@ -1,14 +1,14 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from '@/components/ui/textarea';
-import { Flame, CheckCircle2, TrendingUp, Loader2, History, Trash2 } from 'lucide-react';
-import { format, isToday, isYesterday, differenceInCalendarDays, parseISO } from 'date-fns';
+import { Flame, CheckCircle2, TrendingUp, Loader2, History, Trash2, Brain, ShieldQuestion, CalendarCheck2 } from 'lucide-react';
+import { format, isToday, isYesterday, differenceInCalendarDays, parseISO, subDays, eachDayOfInterval } from 'date-fns';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, deleteDoc } from 'firebase/firestore';
@@ -18,12 +18,23 @@ import type { ChecklistItem, UserProfile } from '@/services/user-service';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip as ChartTooltip } from 'recharts';
+import { Progress } from '@/components/ui/progress';
+
+const mindsetChecks: ChecklistItem[] = [
+    { id: 'follow_plan', label: 'Did I follow my trading plan precisely?' },
+    { id: 'revenge_trade', label: 'Did I revenge trade after a loss?' },
+    { id: 'fomo_trade', label: 'Did I enter a trade due to FOMO?' },
+    { id: 'risk_plan', label: 'Did I break my risk management rules?' },
+    { id: 'emotional', label: 'Did I let emotions drive my decisions?' },
+];
 
 type DisciplineData = {
     id: string; // Document ID: `${user.uid}_${date}`
     lastCompletedDate?: string;
     streak: number;
     checklist: ChecklistState;
+    mindsetChecklist?: ChecklistState;
     notes: string;
     userId?: string; 
     date?: string; 
@@ -39,6 +50,7 @@ const DisciplineTrackerPage = () => {
     const [data, setData] = useState<Partial<DisciplineData>>({
         streak: 0,
         checklist: {},
+        mindsetChecklist: {},
         notes: ''
     });
     const [history, setHistory] = useState<DisciplineData[]>([]);
@@ -124,23 +136,44 @@ const DisciplineTrackerPage = () => {
         setIsLoadingHistory(true);
         const q = query(
             collection(db, "discipline"),
-            where("userId", "==", user.uid)
+            where("userId", "==", user.uid),
+            orderBy("date", "desc")
         );
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const historyData = snapshot.docs
                 .map(doc => ({ ...doc.data(), id: doc.id }) as DisciplineData)
-                .sort((a, b) => {
-                    if (a.date && b.date) {
-                        // Sort descending (newest first)
-                        return new Date(b.date).getTime() - new Date(a.date).getTime();
-                    }
-                    return 0;
-                });
             setHistory(historyData);
             setIsLoadingHistory(false);
         });
         return () => unsubscribe();
     }, [user]);
+
+    const weeklyCompletionData = useMemo(() => {
+        const last7Days = eachDayOfInterval({
+            start: subDays(new Date(), 6),
+            end: new Date()
+        });
+
+        return last7Days.map(day => {
+            const dayStr = format(day, 'yyyy-MM-dd');
+            const record = history.find(h => h.date === dayStr);
+            const completed = record ? Object.values(record.checklist).filter(Boolean).length : 0;
+            return {
+                name: format(day, 'EEE'),
+                completed,
+            };
+        });
+    }, [history]);
+
+    const weeklyChallengeProgress = useMemo(() => {
+        return history
+            .filter(h => {
+                const day = parseISO(h.date!);
+                return differenceInCalendarDays(new Date(), day) < 7;
+            })
+            .filter(h => Object.values(h.checklist).length > 0 && Object.values(h.checklist).every(Boolean))
+            .length;
+    }, [history]);
 
     const handleChecklistChange = (id: string, checked: boolean) => {
         setData(prev => ({
@@ -148,6 +181,14 @@ const DisciplineTrackerPage = () => {
             checklist: { ...prev.checklist, [id]: checked }
         }));
     };
+    
+    const handleMindsetCheckChange = (id: string, checked: boolean) => {
+        setData(prev => ({
+            ...prev,
+            mindsetChecklist: { ...prev.mindsetChecklist, [id]: checked }
+        }));
+    };
+
 
     const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setData(prev => ({ ...prev, notes: e.target.value }));
@@ -160,6 +201,7 @@ const DisciplineTrackerPage = () => {
                 userId: user.uid,
                 date: todayStr,
                 checklist: data.checklist,
+                mindsetChecklist: data.mindsetChecklist,
                 notes: data.notes
             }, { merge: true });
             toast({ title: 'Progress Saved', description: 'Your checklist and notes have been saved for today.' });
@@ -177,6 +219,7 @@ const DisciplineTrackerPage = () => {
                 userId: user.uid,
                 date: todayStr,
                 checklist: data.checklist,
+                mindsetChecklist: data.mindsetChecklist,
                 notes: data.notes,
                 lastCompletedDate: todayStr,
             }, { merge: true });
@@ -221,6 +264,17 @@ const DisciplineTrackerPage = () => {
         }
     }
 
+    const getStreakLabel = (streak: number) => {
+        if (streak >= 30) return "Elite Discipline 🏆";
+        if (streak >= 14) return "Master Discipline 🥇";
+        if (streak >= 7) return "Consistent Discipline 🥈";
+        if (streak >= 3) return "Building Momentum 🥉";
+        return "Beginner Discipline";
+    }
+
+    const streakProgress = ((data.streak || 0) % 7) / 7 * 100;
+
+
     const isCompletedForToday = data.lastCompletedDate === todayStr;
     const allChecked = checklistItems.length > 0 && checklistItems.every(item => data.checklist?.[item.id]);
 
@@ -244,11 +298,13 @@ const DisciplineTrackerPage = () => {
                 </p>
             </div>
             
-            <div className="grid gap-4 md:grid-cols-2">
-                <Card className="flex flex-col items-center justify-center text-center p-6 bg-primary/10 border-primary/20">
-                    <Flame className="h-12 w-12 text-primary" />
-                    <p className="text-5xl font-bold mt-2">{data.streak}</p>
-                    <p className="text-muted-foreground">Day Streak</p>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                 <Card className="flex flex-col justify-center p-6 text-center">
+                    <Flame className="h-12 w-12 text-primary mx-auto" />
+                    <p className="text-5xl font-bold mt-2">{data.streak || 0}</p>
+                    <p className="font-semibold text-primary">{getStreakLabel(data.streak || 0)}</p>
+                    <Progress value={streakProgress} className="mt-3 h-2" />
+                    <p className="text-xs text-muted-foreground mt-1">{(data.streak || 0) % 7} of 7 days to next milestone</p>
                 </Card>
                  <Card className="flex flex-col items-center justify-center text-center p-6">
                     <TrendingUp className="h-12 w-12 text-accent" />
@@ -257,34 +313,85 @@ const DisciplineTrackerPage = () => {
                     </p>
                     <p className="text-muted-foreground">Tasks Completed Today</p>
                 </Card>
+                 <Card className="flex flex-col items-center justify-center text-center p-6">
+                    <CalendarCheck2 className="h-12 w-12 text-green-500 mx-auto" />
+                    <p className="text-5xl font-bold mt-2">{weeklyChallengeProgress}/5</p>
+                    <p className="text-muted-foreground">Weekly Challenge</p>
+                    <p className="text-xs font-semibold text-green-500 mt-1">Complete all tasks for 5 days this week!</p>
+                </Card>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Today's Checklist: {format(new Date(), 'MMMM d, yyyy')}</CardTitle>
-                    <CardDescription>Check off each item as you complete it. Customize your list in Settings.</CardDescription>
+                    <CardTitle>Weekly Completion</CardTitle>
+                    <CardDescription>Your task completion over the last 7 days.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                     {checklistItems.length > 0 ? checklistItems.map(item => (
-                        <div key={item.id} className="flex items-center space-x-3">
-                            <Checkbox 
-                                id={item.id} 
-                                checked={data.checklist?.[item.id] || false}
-                                onCheckedChange={(checked) => handleChecklistChange(item.id, !!checked)}
-                                disabled={isCompletedForToday}
+                <CardContent>
+                    <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={weeklyCompletionData}>
+                             <ChartTooltip
+                                contentStyle={{
+                                    backgroundColor: "hsl(var(--background))",
+                                    borderColor: "hsl(var(--border))"
+                                }}
                             />
-                            <Label 
-                                htmlFor={item.id} 
-                                className={cn("text-sm font-normal", (data.checklist?.[item.id] && !isCompletedForToday) && "line-through text-muted-foreground", isCompletedForToday && "text-muted-foreground")}
-                            >
-                                {item.label}
-                            </Label>
-                        </div>
-                    )) : (
-                        <p className="text-muted-foreground text-center py-4">No discipline checklist items found. You can add them in Settings.</p>
-                    )}
+                            <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                            <Bar dataKey="completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
                 </CardContent>
             </Card>
+
+            <div className="grid md:grid-cols-2 gap-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Today's Checklist: {format(new Date(), 'MMMM d, yyyy')}</CardTitle>
+                        <CardDescription>Check off each item as you complete it.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {checklistItems.length > 0 ? checklistItems.map(item => (
+                            <div key={item.id} className="flex items-center space-x-3">
+                                <Checkbox 
+                                    id={item.id} 
+                                    checked={data.checklist?.[item.id] || false}
+                                    onCheckedChange={(checked) => handleChecklistChange(item.id, !!checked)}
+                                    disabled={isCompletedForToday}
+                                />
+                                <Label 
+                                    htmlFor={item.id} 
+                                    className={cn("text-sm font-normal", (data.checklist?.[item.id] && !isCompletedForToday) && "line-through text-muted-foreground", isCompletedForToday && "text-muted-foreground")}
+                                >
+                                    {item.label}
+                                </Label>
+                            </div>
+                        )) : (
+                            <p className="text-muted-foreground text-center py-4">No discipline checklist items found. You can add them in Settings.</p>
+                        )}
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Brain className="h-6 w-6"/> Mindset Check</CardTitle>
+                        <CardDescription>A quick reflection on potential trading biases.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {mindsetChecks.map(item => (
+                            <div key={item.id} className="flex items-center space-x-3">
+                                <Checkbox 
+                                    id={`mindset-${item.id}`} 
+                                    checked={data.mindsetChecklist?.[item.id] || false}
+                                    onCheckedChange={(checked) => handleMindsetCheckChange(item.id, !!checked)}
+                                    disabled={isCompletedForToday}
+                                />
+                                <Label htmlFor={`mindset-${item.id}`} className={cn("text-sm font-normal", isCompletedForToday && "text-muted-foreground")}>
+                                    {item.label}
+                                </Label>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            </div>
             
              <Card>
                 <CardHeader>
@@ -387,3 +494,6 @@ const DisciplineTrackerPage = () => {
 }
 
 export default DisciplineTrackerPage;
+
+
+    
