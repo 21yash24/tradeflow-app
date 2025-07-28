@@ -5,10 +5,10 @@ import * as admin from 'firebase-admin';
 
 if (!admin.apps.length) {
   try {
-    // When deployed to App Hosting, Application Default Credentials are automatically available.
     admin.initializeApp();
-  } catch (e) {
-    console.error('Firebase Admin initialization error:', e);
+  } catch (error: any) {
+    // In a real app, you might want to log this error to a service
+    console.error('Firebase Admin initialization error', error);
   }
 }
 
