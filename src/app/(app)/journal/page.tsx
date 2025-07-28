@@ -40,6 +40,7 @@ type Account = {
     id: string;
     name: string;
     balance: number;
+    riskPerTrade?: number;
 }
 
 
@@ -238,7 +239,8 @@ export default function JournalPage() {
     const averagePnl = (viewingTrade.accountIds || []).reduce((sum, accId) => {
         const account = accounts[accId];
         if (account) {
-            return sum + ((account.balance * 0.01) * (viewingTrade.rr || 0));
+            const riskAmount = account.riskPerTrade || (account.balance * 0.01);
+            return sum + (riskAmount * (viewingTrade.rr || 0));
         }
         return sum;
     }, 0) / (viewingTrade.accountIds?.length || 1);
@@ -503,7 +505,8 @@ export default function JournalPage() {
                             {(viewingTrade.accountIds || []).map(accId => {
                                 const account = accounts[accId];
                                 if (!account) return null;
-                                const pnl = (account.balance * 0.01) * (viewingTrade.rr || 0);
+                                const riskAmount = account.riskPerTrade || (account.balance * 0.01);
+                                const pnl = riskAmount * (viewingTrade.rr || 0);
                                 return (
                                     <div key={accId} className="flex justify-between items-center text-sm">
                                         <span className="font-medium">{account.name}</span>

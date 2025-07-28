@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit, FileText, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit, FileText, Image as ImageIcon, ArrowRight } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, Pie, PieChart, RadialBar, RadialBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -17,7 +17,7 @@ import { useForm, useForm as useHookForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { backtestStrategy, type BacktestResult } from '@/ai/flows/backtester-flow';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormMessage, FormDescription } from '@/components/ui/form';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, addDoc, serverTimestamp, doc, deleteDoc, updateDoc } from 'firebase/firestore';
@@ -32,6 +32,7 @@ type Account = {
     id: string;
     name: string;
     balance: number;
+    riskPerTrade?: number;
     userId: string;
     createdAt: any;
 }
@@ -39,6 +40,7 @@ type Account = {
 const accountFormSchema = z.object({
     name: z.string().min(2, { message: "Account name must be at least 2 characters." }),
     balance: z.coerce.number().positive({ message: "Starting balance must be a positive number." }),
+    riskPerTrade: z.coerce.number().positive({ message: "Risk amount must be a positive number." }).optional(),
 })
 
 const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Account[], onAccountCreated: () => void }) => {
@@ -49,14 +51,14 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
 
     const form = useHookForm<z.infer<typeof accountFormSchema>>({
         resolver: zodResolver(accountFormSchema),
-        defaultValues: { name: "", balance: 10000 },
+        defaultValues: { name: "", balance: 10000, riskPerTrade: undefined },
     });
 
     useEffect(() => {
         if(editingAccount) {
             form.reset(editingAccount);
         } else {
-            form.reset({ name: "", balance: 10000 });
+            form.reset({ name: "", balance: 10000, riskPerTrade: undefined });
         }
     }, [editingAccount, form]);
     
@@ -65,21 +67,26 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
         setIsSubmitting(true);
         
         try {
+            const dataToSave = {
+                ...values,
+                riskPerTrade: values.riskPerTrade || null, // Store null if empty
+            }
+
             if (editingAccount) {
                 // Update existing account
                 const accountRef = doc(db, "accounts", editingAccount.id);
-                await updateDoc(accountRef, values);
+                await updateDoc(accountRef, dataToSave);
                 toast({ title: "Account Updated", description: `Account "${values.name}" has been updated.` });
             } else {
                 // Create new account
                  await addDoc(collection(db, "accounts"), {
-                    ...values,
+                    ...dataToSave,
                     userId: user.uid,
                     createdAt: serverTimestamp(),
                 });
                 toast({ title: "Account Created!", description: `Account "${values.name}" has been added.` });
             }
-            form.reset({ name: "", balance: 10000 });
+            form.reset({ name: "", balance: 10000, riskPerTrade: undefined });
             setEditingAccount(null);
             onAccountCreated();
         } catch (error) {
@@ -164,6 +171,22 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
                                     </FormItem>
                                 )}
                             />
+                            <FormField
+                                control={form.control}
+                                name="riskPerTrade"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Label>Risk Amount Per Trade ($)</Label>
+                                        <FormControl>
+                                            <Input type="number" placeholder="e.g., 500" value={field.value ?? ''} {...field} />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Optional. If empty, P/L will be calculated as 1% of the balance per R.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <DialogFooter>
                                 {editingAccount && <Button variant="ghost" type="button" onClick={() => setEditingAccount(null)}>Cancel</Button>}
                                 <Button type="submit" disabled={isSubmitting}>
@@ -228,6 +251,10 @@ const PerformanceDashboard = () => {
         }
     }, [user]);
 
+    const calculatePnl = useCallback((trade: Trade, account: Account) => {
+        const riskAmount = account.riskPerTrade || (account.balance * 0.01);
+        return riskAmount * (trade.rr || 0);
+    }, []);
 
      const analyticsData = useMemo(() => {
         if (isLoading || !selectedAccount) {
@@ -244,16 +271,14 @@ const PerformanceDashboard = () => {
              avgWin: 0, avgLoss: 0, profitFactor: 0, cumulativePnlData: [], pnlByPairData: [], tradesByDay: {}
         };
 
-        const calculatePnl = (trade: Trade) => (currentAccount.balance * 0.01) * (trade.rr || 0);
-
         const totalTrades = accountTrades.length;
-        const winningTrades = accountTrades.filter(t => calculatePnl(t) > 0).length;
-        const losingTrades = accountTrades.filter(t => calculatePnl(t) <= 0).length;
+        const winningTrades = accountTrades.filter(t => calculatePnl(t, currentAccount) > 0).length;
+        const losingTrades = accountTrades.filter(t => calculatePnl(t, currentAccount) <= 0).length;
         const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
 
-        const totalPnl = accountTrades.reduce((sum, t) => sum + calculatePnl(t), 0);
-        const totalWon = accountTrades.filter(t => calculatePnl(t) > 0).reduce((sum, t) => sum + calculatePnl(t), 0);
-        const totalLost = accountTrades.filter(t => calculatePnl(t) <= 0).reduce((sum, t) => Math.abs(calculatePnl(t)), 0);
+        const totalPnl = accountTrades.reduce((sum, t) => sum + calculatePnl(t, currentAccount), 0);
+        const totalWon = accountTrades.filter(t => calculatePnl(t, currentAccount) > 0).reduce((sum, t) => sum + calculatePnl(t, currentAccount), 0);
+        const totalLost = accountTrades.filter(t => calculatePnl(t, currentAccount) <= 0).reduce((sum, t) => Math.abs(calculatePnl(t, currentAccount)), 0);
         
         const avgWin = winningTrades > 0 ? totalWon / winningTrades : 0;
         const avgLoss = losingTrades > 0 ? totalLost / losingTrades : 0;
@@ -262,14 +287,14 @@ const PerformanceDashboard = () => {
         const cumulativePnlData = accountTrades
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
             .reduce((acc, trade, index) => {
-                const pnl = calculatePnl(trade);
+                const pnl = calculatePnl(trade, currentAccount);
                 const cumulativePnl = (acc[index - 1]?.cumulativePnl || 0) + pnl;
                 acc.push({ name: `Trade ${index + 1}`, cumulativePnl: parseFloat(cumulativePnl.toFixed(2)) });
                 return acc;
             }, [] as { name: string; cumulativePnl: number }[]);
 
         const pnlByPair = accountTrades.reduce((acc, trade) => {
-            const pnl = calculatePnl(trade);
+            const pnl = calculatePnl(trade, currentAccount);
             if (!acc[trade.pair]) {
                 acc[trade.pair] = { name: trade.pair, pnl: 0 };
             }
@@ -283,7 +308,7 @@ const PerformanceDashboard = () => {
 
         const tradesByDay = accountTrades.reduce((acc, trade) => {
             const dateKey = format(parseISO(trade.date), 'yyyy-MM-dd');
-            const pnl = calculatePnl(trade);
+            const pnl = calculatePnl(trade, currentAccount);
             if (!acc[dateKey]) {
                 acc[dateKey] = { pnl: 0, trades: 0 };
             }
@@ -297,8 +322,21 @@ const PerformanceDashboard = () => {
             avgWin, avgLoss, profitFactor, cumulativePnlData, pnlByPairData, tradesByDay
         };
 
-    }, [trades, isLoading, selectedAccount, accounts]);
+    }, [trades, isLoading, selectedAccount, accounts, calculatePnl]);
     
+    const accountsWithPnl = useMemo(() => {
+        return accounts.map(account => {
+            const accountTrades = trades.filter(trade => trade.accountIds && trade.accountIds.includes(account.id));
+            const totalPnl = accountTrades.reduce((sum, trade) => sum + calculatePnl(trade, account), 0);
+            return {
+                ...account,
+                totalPnl,
+                currentBalance: account.balance + totalPnl,
+            };
+        });
+    }, [accounts, trades, calculatePnl]);
+
+
     const firstDayOfMonth = startOfMonth(currentDate);
     const lastDayOfMonth = endOfMonth(currentDate);
 
@@ -335,14 +373,23 @@ const PerformanceDashboard = () => {
     return (
         <div className="space-y-6">
              <div className="flex items-center gap-2 w-full sm:w-auto">
-                {accounts.length > 0 && selectedAccount ? (
+                {accountsWithPnl.length > 0 && selectedAccount ? (
                      <Select value={selectedAccount} onValueChange={(val) => setSelectedAccount(val)}>
-                        <SelectTrigger className="w-full sm:w-[280px]">
+                        <SelectTrigger className="w-full sm:w-[380px]">
                             <SelectValue placeholder="Select an account" />
                         </SelectTrigger>
                         <SelectContent>
-                            {accounts.map(({ id, name, balance }) => (
-                                <SelectItem key={id} value={id}>{name} (${balance.toLocaleString()})</SelectItem>
+                            {accountsWithPnl.map(({ id, name, balance, currentBalance, totalPnl }) => (
+                                <SelectItem key={id} value={id}>
+                                    <div className='flex justify-between items-center w-full'>
+                                        <span>{name}</span>
+                                        <div className='flex items-center gap-2 text-xs'>
+                                            <span>${balance.toLocaleString()}</span>
+                                            <ArrowRight size={12}/>
+                                            <span className={cn(totalPnl > 0 ? 'text-green-500' : 'text-red-500')}>${currentBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                        </div>
+                                    </div>
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -539,7 +586,7 @@ const PerformanceDashboard = () => {
                     <div className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-4">
                         {selectedDayTrades.map(trade => {
                              const currentAccount = selectedAccount ? accounts.find(acc => acc.id === selectedAccount) : null;
-                             const pnl = currentAccount ? (currentAccount.balance * 0.01) * (trade.rr || 0) : 0;
+                             const pnl = currentAccount ? calculatePnl(trade, currentAccount) : 0;
                             return (
                                 <Card key={trade.id} className="p-4">
                                      <div className="flex justify-between items-start">
