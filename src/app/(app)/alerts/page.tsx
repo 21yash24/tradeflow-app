@@ -51,7 +51,7 @@ const CreateAlertForm = ({ onAlertCreated }: { onAlertCreated: () => void }) => 
         defaultValues: {
             pair: "EURUSD",
             direction: "above",
-            threshold: undefined,
+            threshold: '' as any, // Changed from undefined
             notes: "",
         },
     });
@@ -68,7 +68,7 @@ const CreateAlertForm = ({ onAlertCreated }: { onAlertCreated: () => void }) => 
                 createdAt: serverTimestamp(),
             });
             toast({ title: 'Alert Created', description: `You will be notified when ${values.pair} goes ${values.direction} ${values.threshold}.` });
-            form.reset({ pair: "EURUSD", direction: 'above', threshold: undefined, notes: '' });
+            form.reset({ pair: "EURUSD", direction: 'above', threshold: '' as any, notes: '' });
             onAlertCreated();
         } catch (error) {
             console.error('Error creating alert:', error);
