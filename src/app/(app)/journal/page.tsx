@@ -34,7 +34,6 @@ import { useAuthState } from "react-firebase-hooks/auth";
 import { useToast } from "@/hooks/use-toast";
 import { parseISO, format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { deleteTrade } from "@/services/trade-actions";
 
 type Account = {
     id: string;
@@ -196,6 +195,21 @@ export default function JournalPage() {
     setAnalysisResult(null);
     setIsAnalyzing(false);
   };
+
+    const handleDeleteTrade = async (tradeId: string) => {
+        if (!tradeId) return;
+
+        if (window.confirm("Are you sure you want to permanently delete this trade?")) {
+            try {
+                await deleteDoc(doc(db, "trades", tradeId));
+                toast({ title: "Trade Deleted", description: "The trade has been removed from your journal." });
+                handleCloseDetails();
+            } catch (error) {
+                console.error("Error deleting trade:", error);
+                toast({ title: "Error", description: "Failed to delete trade.", variant: "destructive" });
+            }
+        }
+    };
 
   const handleAnalyzeTrade = async () => {
     if (!viewingTrade) return;
@@ -474,17 +488,10 @@ export default function JournalPage() {
                            <Edit className="h-4 w-4" />
                            <span className="sr-only">Edit Trade</span>
                         </Button>
-                        <form action={async () => {
-                            if (!viewingTrade) return;
-                            await deleteTrade(viewingTrade.id);
-                            toast({ title: "Trade Deleted", description: "The trade has been removed from your journal." });
-                            handleCloseDetails();
-                        }}>
-                             <Button variant="destructive" size="icon" type="submit">
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">Delete Trade</span>
-                            </Button>
-                        </form>
+                        <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade.id)}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete Trade</span>
+                        </Button>
                     </div>
                 </DialogFooter>
                 </>
@@ -494,7 +501,3 @@ export default function JournalPage() {
     </div>
   );
 }
-
-    
-
-    
