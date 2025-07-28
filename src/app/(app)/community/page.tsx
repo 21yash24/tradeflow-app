@@ -64,28 +64,38 @@ const PostActions = ({ post }: { post: Post }) => {
 
         const postRef = doc(db, 'posts', post.id);
         const likeRef = doc(db, `posts/${post.id}/likes`, user.uid);
-        const likeDoc = await getDoc(likeRef);
+        
+        // Optimistically update UI
+        const currentlyLiked = isLiked;
+        const currentLikeCount = likeCount;
+
+        setIsLiked(!currentlyLiked);
+        setLikeCount(currentLikeCount + (!currentlyLiked ? 1 : -1));
 
         try {
-            if (likeDoc.exists()) {
-                // Unlike
-                await writeBatch(db)
-                    .delete(likeRef)
-                    .update(postRef, { likeCount: increment(-1), likedBy: post.likedBy?.filter(id => id !== user.uid) })
-                    .commit();
-                setIsLiked(false);
-                setLikeCount(prev => prev - 1);
-            } else {
-                // Like
-                await writeBatch(db)
-                    .set(likeRef, { userId: user.uid, createdAt: serverTimestamp() })
-                    .update(postRef, { likeCount: increment(1), likedBy: [...(post.likedBy || []), user.uid] })
-                    .commit();
-                setIsLiked(true);
-                setLikeCount(prev => prev - 1);
-            }
+            await runTransaction(db, async (transaction) => {
+                const postDoc = await transaction.get(postRef);
+                if (!postDoc.exists()) {
+                    throw "Post does not exist!";
+                }
+
+                const likeDoc = await transaction.get(likeRef);
+
+                if (likeDoc.exists()) {
+                    // Unlike
+                    transaction.delete(likeRef);
+                    transaction.update(postRef, { likeCount: increment(-1) });
+                } else {
+                    // Like
+                    transaction.set(likeRef, { userId: user.uid, createdAt: serverTimestamp() });
+                    transaction.update(postRef, { likeCount: increment(1) });
+                }
+            });
         } catch (error) {
             console.error("Error liking post:", error);
+            // Revert optimistic update on error
+            setIsLiked(currentlyLiked);
+            setLikeCount(currentLikeCount);
             toast({ title: "Error", description: "Could not update like status.", variant: "destructive" });
         }
     };
