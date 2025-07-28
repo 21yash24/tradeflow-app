@@ -213,7 +213,7 @@ const PerformanceDashboard = () => {
             );
             const unsubscribe = onSnapshot(q, (snapshot) => {
                 const tradesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Trade[];
-                setTrades(tradesData);
+                setTrades(tradesData.filter(trade => !trade.deleted)); // Filter out soft-deleted trades
                 setIsLoading(false);
             });
             return () => unsubscribe();

@@ -66,6 +66,7 @@ export type AddTradeFormValues = z.infer<typeof formSchema>;
 export type Trade = AddTradeFormValues & { 
     id: string; 
     userId: string; 
+    deleted?: boolean;
 };
 
 

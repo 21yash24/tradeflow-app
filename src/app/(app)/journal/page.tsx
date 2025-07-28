@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2, Edit } from "lucide-react";
+import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2, Edit, Undo, EyeOff } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -34,6 +34,7 @@ import { useAuthState } from "react-firebase-hooks/auth";
 import { useToast } from "@/hooks/use-toast";
 import { parseISO, format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Account = {
     id: string;
@@ -133,6 +134,9 @@ export default function JournalPage() {
     }
   }, [user]);
 
+  const activeTrades = trades.filter(t => !t.deleted);
+  const deletedTrades = trades.filter(t => t.deleted);
+
   const handleOpenAddDialog = () => {
       setEditingTrade(null);
       setTradeDialogOpen(true);
@@ -170,6 +174,7 @@ export default function JournalPage() {
             ...values,
             userId: user.uid,
             date: format(values.date, 'yyyy-MM-dd'),
+            deleted: false, // Set initial deleted status
         };
         try {
             await addDoc(collection(db, "trades"), newTradeData);
@@ -196,20 +201,33 @@ export default function JournalPage() {
     setIsAnalyzing(false);
   };
 
-    const handleDeleteTrade = async (tradeId: string) => {
-        if (!tradeId) return;
-
-        if (window.confirm("Are you sure you want to permanently delete this trade?")) {
-            try {
-                await deleteDoc(doc(db, "trades", tradeId));
-                toast({ title: "Trade Deleted", description: "The trade has been removed from your journal." });
-                handleCloseDetails();
-            } catch (error) {
-                console.error("Error deleting trade:", error);
-                toast({ title: "Error", description: "Failed to delete trade.", variant: "destructive" });
-            }
+  const handleDeleteTrade = async (tradeId: string) => {
+    if (!tradeId) return;
+    if (window.confirm("Are you sure you want to move this trade to the trash?")) {
+        try {
+            const tradeRef = doc(db, "trades", tradeId);
+            await updateDoc(tradeRef, { deleted: true });
+            toast({ title: "Trade Moved to Trash", description: "You can restore it from the 'Deleted' tab." });
+            handleCloseDetails();
+        } catch (error) {
+            console.error("Error deleting trade:", error);
+            toast({ title: "Error", description: "Failed to delete trade.", variant: "destructive" });
         }
-    };
+    }
+  };
+
+  const handleRestoreTrade = async (tradeId: string) => {
+      if(!tradeId) return;
+      try {
+        const tradeRef = doc(db, "trades", tradeId);
+        await updateDoc(tradeRef, { deleted: false });
+        toast({ title: "Trade Restored", description: "The trade has been moved back to your journal."});
+      } catch (error) {
+          console.error("Error restoring trade:", error);
+          toast({ title: "Error", description: "Failed to restore trade.", variant: "destructive" });
+      }
+  }
+
 
   const handleAnalyzeTrade = async () => {
     if (!viewingTrade) return;
@@ -240,6 +258,63 @@ export default function JournalPage() {
     } finally {
         setIsAnalyzing(false);
     }
+  }
+  
+  const renderTradeRow = (trade: Trade, isDeletedView = false) => {
+    const hasAccounts = trade.accountIds && trade.accountIds.length > 0;
+    const firstAccountName = hasAccounts && accounts[trade.accountIds[0]] ? accounts[trade.accountIds[0]].name : 'N/A';
+    const remainingAccounts = hasAccounts ? trade.accountIds.length - 1 : 0;
+
+    return (
+        <TableRow key={trade.id}>
+            <TableCell className="font-medium">{trade.pair}</TableCell>
+            <TableCell>{format(parseISO(trade.date), 'MMM d, yyyy')}</TableCell>
+            <TableCell>
+                <div className="flex items-center gap-2">
+                    <span>{firstAccountName}</span>
+                    {remainingAccounts > 0 && <Badge variant="secondary">+{remainingAccounts}</Badge>}
+                </div>
+            </TableCell>
+            <TableCell>
+                <Badge
+                    variant={trade.type === "buy" ? "default" : "destructive"}
+                    className={
+                    trade.type === "buy"
+                        ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
+                        : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
+                    }
+                >
+                    {trade.type}
+                </Badge>
+            </TableCell>
+            <TableCell
+                className={
+                (trade.rr || 0) >= 0 ? "text-green-400" : "text-red-400"
+                }
+            >
+                {(trade.rr || 0).toFixed(2)}R
+            </TableCell>
+            <TableCell>{trade.setup}</TableCell>
+            <TableCell className="text-center">
+                {trade.screenshot && (
+                    <Button variant="ghost" size="icon" onClick={() => setViewingImage(trade.screenshot!)}>
+                    <ImageIcon className="h-5 w-5" />
+                    </Button>
+                )}
+            </TableCell>
+            <TableCell>
+                 {isDeletedView ? (
+                    <Button variant="outline" size="sm" onClick={() => handleRestoreTrade(trade.id)}>
+                        <Undo className="mr-2 h-4 w-4" /> Restore
+                    </Button>
+                ) : (
+                    <Button variant="ghost" size="sm" onClick={() => setViewingTrade(trade)}>
+                        View Details
+                    </Button>
+                )}
+            </TableCell>
+        </TableRow>
+      );
   }
 
   return (
@@ -284,91 +359,92 @@ export default function JournalPage() {
           </DialogContent>
         </Dialog>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Trade History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Currency Pair</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Account(s)</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>R:R</TableHead>
-                <TableHead>Setup</TableHead>
-                <TableHead className="text-center">Chart</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoadingTrades ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12">
-                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
-                  </TableCell>
-                </TableRow>
-              ) : trades.length === 0 ? (
-                <TableRow>
-                   <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                       No trades logged yet. Click "Add Trade" to start.
-                   </TableCell>
-                </TableRow>
-              ) : trades.map((trade) => {
-                  const hasAccounts = trade.accountIds && trade.accountIds.length > 0;
-                  const firstAccountName = hasAccounts ? accounts[trade.accountIds[0]]?.name || 'N/A' : 'N/A';
-                  const remainingAccounts = hasAccounts ? trade.accountIds.length - 1 : 0;
-                  
-                  return (
-                    <TableRow key={trade.id}>
-                      <TableCell className="font-medium">{trade.pair}</TableCell>
-                      <TableCell>{format(parseISO(trade.date), 'MMM d, yyyy')}</TableCell>
-                      <TableCell>
-                          <div className="flex items-center gap-2">
-                             <span>{firstAccountName}</span>
-                            {remainingAccounts > 0 && <Badge variant="secondary">+{remainingAccounts}</Badge>}
-                          </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={trade.type === "buy" ? "default" : "destructive"}
-                          className={
-                            trade.type === "buy"
-                              ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
-                              : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
-                          }
-                        >
-                          {trade.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell
-                        className={
-                          (trade.rr || 0) >= 0 ? "text-green-400" : "text-red-400"
-                        }
-                      >
-                        {(trade.rr || 0).toFixed(2)}R
-                      </TableCell>
-                      <TableCell>{trade.setup}</TableCell>
-                       <TableCell className="text-center">
-                        {trade.screenshot && (
-                          <Button variant="ghost" size="icon" onClick={() => setViewingImage(trade.screenshot!)}>
-                            <ImageIcon className="h-5 w-5" />
-                          </Button>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => setViewingTrade(trade)}>
-                          View Details
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        <Tabs defaultValue="active">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="active">Active Trades</TabsTrigger>
+                <TabsTrigger value="deleted">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Deleted
+                </TabsTrigger>
+            </TabsList>
+            <TabsContent value="active">
+                <Card className="mt-4">
+                    <CardHeader>
+                    <CardTitle>Trade History</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                    <Table>
+                        <TableHeader>
+                        <TableRow>
+                            <TableHead>Currency Pair</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Account(s)</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>R:R</TableHead>
+                            <TableHead>Setup</TableHead>
+                            <TableHead className="text-center">Chart</TableHead>
+                            <TableHead></TableHead>
+                        </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {isLoadingTrades ? (
+                            <TableRow>
+                            <TableCell colSpan={8} className="text-center py-12">
+                                <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                            </TableCell>
+                            </TableRow>
+                        ) : activeTrades.length === 0 ? (
+                            <TableRow>
+                            <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                                No trades logged yet. Click "Add Trade" to start.
+                            </TableCell>
+                            </TableRow>
+                        ) : activeTrades.map((trade) => renderTradeRow(trade))}
+                        </TableBody>
+                    </Table>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+            <TabsContent value="deleted">
+                <Card className="mt-4">
+                    <CardHeader>
+                        <CardTitle>Deleted Trades</CardTitle>
+                        <CardDescription>These trades have been deleted. You can restore them if needed.</CardDescription>
+                    </CardHeader>
+                     <CardContent>
+                    <Table>
+                        <TableHeader>
+                        <TableRow>
+                            <TableHead>Currency Pair</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Account(s)</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>R:R</TableHead>
+                            <TableHead>Setup</TableHead>
+                            <TableHead className="text-center">Chart</TableHead>
+                            <TableHead></TableHead>
+                        </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {isLoadingTrades ? (
+                            <TableRow>
+                                <TableCell colSpan={8} className="text-center py-12">
+                                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                                </TableCell>
+                            </TableRow>
+                        ) : deletedTrades.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                                    No deleted trades.
+                                </TableCell>
+                            </TableRow>
+                        ) : deletedTrades.map((trade) => renderTradeRow(trade, true))}
+                        </TableBody>
+                    </Table>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+        </Tabs>
       
        <Dialog open={!!viewingImage} onOpenChange={(isOpen) => !isOpen && setViewingImage(null)}>
         <DialogContent className="max-w-4xl">
