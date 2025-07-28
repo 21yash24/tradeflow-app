@@ -195,16 +195,17 @@ export default function JournalPage() {
     setIsAnalyzing(false);
   };
 
-  const handleDeleteTrade = async (tradeId: string) => {
+  const handleDeleteTrade = (tradeId: string) => {
     if (window.confirm("Are you sure you want to delete this trade? This action cannot be undone.")) {
-        try {
-            await deleteDoc(doc(db, "trades", tradeId));
-            toast({ title: "Trade Deleted", description: "The trade has been removed from your journal."});
-            handleCloseDetails();
-        } catch (error) {
-            console.error("Error deleting trade:", error);
-            toast({ title: "Error", description: "Could not delete trade.", variant: "destructive"});
-        }
+        deleteDoc(doc(db, "trades", tradeId))
+            .then(() => {
+                toast({ title: "Trade Deleted", description: "The trade has been removed from your journal."});
+                handleCloseDetails();
+            })
+            .catch((error) => {
+                console.error("Error deleting trade:", error);
+                toast({ title: "Error", description: "Could not delete trade.", variant: "destructive"});
+            });
     }
   }
 
@@ -315,9 +316,10 @@ export default function JournalPage() {
                    </TableCell>
                 </TableRow>
               ) : trades.map((trade) => {
-                  const firstAccountName = accounts[trade.accountIds[0]]?.name || 'N/A';
-                  const remainingAccounts = trade.accountIds.length - 1;
-                  const pnl = (accounts[trade.accountIds[0]]?.balance || 0) * 0.01 * trade.rr;
+                  const hasAccounts = trade.accountIds && trade.accountIds.length > 0;
+                  const firstAccountName = hasAccounts ? accounts[trade.accountIds[0]]?.name || 'N/A' : 'N/A';
+                  const remainingAccounts = hasAccounts ? trade.accountIds.length - 1 : 0;
+                  const pnl = hasAccounts ? (accounts[trade.accountIds[0]]?.balance || 0) * 0.01 * trade.rr : 0;
 
                   return (
                     <TableRow key={trade.id}>
