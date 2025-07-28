@@ -23,12 +23,11 @@ const FinnhubEventSchema = z.object({
     event: z.string().optional(),
     impact: z.string().optional(),
     prev: z.number().nullable().optional(),
-    time: z.number().optional(), // Expecting a UNIX timestamp (number)
+    time: z.string().optional(), // Forex endpoint returns a string date 'YYYY-MM-DD HH:MM:SS'
 });
 
-const FinnhubResponseSchema = z.object({
-    economicCalendar: z.array(FinnhubEventSchema),
-});
+// The forex endpoint returns a simple array, not an object with a key
+const FinnhubResponseSchema = z.array(FinnhubEventSchema);
 
 
 export async function getEconomicNews(from: string, to: string): Promise<EconomicEvent[]> {
@@ -38,7 +37,8 @@ export async function getEconomicNews(from: string, to: string): Promise<Economi
         return [];
     }
 
-    const url = `https://finnhub.io/api/v1/calendar/economic?from=${from}&to=${to}&token=${apiKey}`;
+    // Switched to the more specific forex economic calendar endpoint
+    const url = `https://finnhub.io/api/v1/forex/economic?from=${from}&to=${to}&token=${apiKey}`;
 
     try {
         const response = await fetch(url);
@@ -55,11 +55,12 @@ export async function getEconomicNews(from: string, to: string): Promise<Economi
             return [];
         }
         
-        return parsedData.data.economicCalendar
+        return parsedData.data
             .filter(e => e.time && e.event && e.country && e.impact) // Filter out events with missing essential data
             .map(event => ({
-                // Correctly handle UNIX timestamp (seconds to milliseconds)
-                date: new Date(event.time! * 1000).toISOString(), 
+                // The time from this endpoint is a string like "2024-03-15 08:30:00"
+                // We assume UTC and convert to an ISO string for consistency
+                date: new Date(event.time! + 'Z').toISOString(), 
                 country: event.country!,
                 event: event.event!,
                 impact: event.impact!,
