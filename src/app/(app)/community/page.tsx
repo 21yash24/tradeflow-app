@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Heart, MessageCircle, Repeat, Loader2, UserPlus, Search, MoreHorizontal, Trash2, Edit, Image as ImageIcon } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db, storage } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, where, doc, deleteDoc, updateDoc, runTransaction, increment, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, where, doc, deleteDoc, updateDoc, runTransaction, increment, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -46,15 +46,9 @@ type Comment = {
 const PostActions = ({ post }: { post: Post }) => {
     const [user] = useAuthState(auth);
     const { toast } = useToast();
-    const [isLiked, setIsLiked] = useState(false);
-    const [likeCount, setLikeCount] = useState(post.likeCount);
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
 
-    useEffect(() => {
-        if (user && post.likedBy) {
-            setIsLiked(post.likedBy.includes(user.uid));
-        }
-    }, [user, post.likedBy]);
+    const isLiked = user && post.likedBy ? post.likedBy.includes(user.uid) : false;
 
     const handleLike = async () => {
         if (!user) {
@@ -63,12 +57,6 @@ const PostActions = ({ post }: { post: Post }) => {
         }
 
         const postRef = doc(db, 'posts', post.id);
-        const likeRef = doc(db, `posts/${post.id}/likes`, user.uid);
-        
-        const currentlyLiked = isLiked;
-        
-        setIsLiked(!currentlyLiked);
-        setLikeCount(prev => prev + (!currentlyLiked ? 1 : -1));
 
         try {
             await runTransaction(db, async (transaction) => {
@@ -77,23 +65,25 @@ const PostActions = ({ post }: { post: Post }) => {
                     throw "Post does not exist!";
                 }
 
-                const likeDoc = await transaction.get(likeRef);
+                const currentLikedBy = postDoc.data().likedBy || [];
+                const userHasLiked = currentLikedBy.includes(user.uid);
 
-                if (likeDoc.exists()) {
+                if (userHasLiked) {
                     // Unlike
-                    transaction.delete(likeRef);
-                    transaction.update(postRef, { likeCount: increment(-1) });
+                    transaction.update(postRef, {
+                        likeCount: increment(-1),
+                        likedBy: arrayRemove(user.uid)
+                    });
                 } else {
                     // Like
-                    transaction.set(likeRef, { userId: user.uid, createdAt: serverTimestamp() });
-                    transaction.update(postRef, { likeCount: increment(1) });
+                    transaction.update(postRef, {
+                        likeCount: increment(1),
+                        likedBy: arrayUnion(user.uid)
+                    });
                 }
             });
         } catch (error) {
             console.error("Error liking post:", error);
-            // Revert optimistic update on error
-            setIsLiked(currentlyLiked);
-            setLikeCount(prev => prev + (currentlyLiked ? 1 : -1));
             toast({ title: "Error", description: "Could not update like status.", variant: "destructive" });
         }
     };
@@ -116,7 +106,7 @@ const PostActions = ({ post }: { post: Post }) => {
                     onClick={handleLike}
                 >
                     <Heart size={18} className={isLiked ? "fill-current" : ""} />
-                    <span>{likeCount}</span>
+                    <span>{post.likeCount}</span>
                 </Button>
             </div>
             {isCommentsOpen && <CommentsDialog postId={post.id} isOpen={isCommentsOpen} onOpenChange={setIsCommentsOpen} />}
@@ -558,3 +548,5 @@ const CommunityPage = () => {
 };
 
 export default CommunityPage;
+
+    
