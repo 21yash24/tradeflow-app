@@ -219,11 +219,11 @@ export default function JournalPage() {
     setEditingTrade(null);
   };
   
-  const handleCloseDetails = useCallback(() => {
+  const handleCloseDetails = () => {
     setViewingTrade(null);
     setAnalysisResult(null);
     setIsAnalyzing(false);
-  }, []);
+  };
 
   const handleDeleteTrade = async (tradeId: string) => {
     if (window.confirm("Are you sure you want to delete this trade? This action cannot be undone.")) {
@@ -488,4 +488,3 @@ export default function JournalPage() {
     </div>
   );
 }
-

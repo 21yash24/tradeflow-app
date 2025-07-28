@@ -163,7 +163,7 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
                                 )}
                             />
                             <DialogFooter>
-                                {editingAccount && <Button variant="ghost" onClick={() => setEditingAccount(null)}>Cancel</Button>}
+                                {editingAccount && <Button variant="ghost" type="button" onClick={() => setEditingAccount(null)}>Cancel</Button>}
                                 <Button type="submit" disabled={isSubmitting}>
                                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : editingAccount ? <Edit className="mr-2 h-4 w-4"/> : <PlusCircle className="mr-2 h-4 w-4" />}
                                     {editingAccount ? 'Save Changes' : 'Create Account'}
