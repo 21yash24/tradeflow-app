@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { AddTradeFlow, type Trade, type AddTradeFormValues } from "@/components/add-trade-form";
 import Image from "next/image";
@@ -499,7 +500,7 @@ export default function JournalPage() {
                     <div className="space-y-2">
                         <h4 className="font-semibold">Accounts & P/L</h4>
                         <div className="space-y-2 rounded-md border p-3">
-                            {viewingTrade.accountIds && viewingTrade.accountIds.map(accId => {
+                            {(viewingTrade.accountIds || []).map(accId => {
                                 const account = accounts[accId];
                                 if (!account) return null;
                                 const pnl = (account.balance * 0.01) * (viewingTrade.rr || 0);
@@ -576,3 +577,5 @@ export default function JournalPage() {
     </div>
   );
 }
+
+    
