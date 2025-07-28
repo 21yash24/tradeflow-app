@@ -82,7 +82,7 @@ const PostActions = ({ post }: { post: Post }) => {
                     .update(postRef, { likeCount: increment(1), likedBy: [...(post.likedBy || []), user.uid] })
                     .commit();
                 setIsLiked(true);
-                setLikeCount(prev => prev + 1);
+                setLikeCount(prev => prev - 1);
             }
         } catch (error) {
             console.error("Error liking post:", error);
@@ -184,7 +184,7 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: { postId: string, isOp
                                     <div className="bg-muted p-3 rounded-lg w-full">
                                         <div className="flex items-center gap-2">
                                             <p className="font-semibold text-sm">{comment.authorName}</p>
-                                            <p className="text-xs text-muted-foreground">{formatDistanceToNow(comment.createdAt?.toDate(), { addSuffix: true })}</p>
+                                            <p className="text-xs text-muted-foreground">{comment.createdAt?.toDate ? formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true }) : 'just now'}</p>
                                         </div>
                                         <p className="text-sm mt-1">{comment.content}</p>
                                     </div>
@@ -308,6 +308,7 @@ const UserSearch = () => {
     useEffect(() => {
         if (searchTerm.trim() === '') {
             setResults([]);
+            setIsSearching(false);
             return;
         }
 
@@ -324,7 +325,7 @@ const UserSearch = () => {
             setIsSearching(false);
         });
 
-        return () => unsubscribe();
+        return () => unsubscribe(); // This is the cleanup function
     }, [searchTerm]);
 
     return (
@@ -549,5 +550,3 @@ const CommunityPage = () => {
 };
 
 export default CommunityPage;
-
-    
