@@ -1,6 +1,6 @@
 # TradeFlow - A Firebase Studio Project
 
-This is a Next.js starter application built in Firebase Studio. It's a comprehensive toolkit for traders, combining a detailed trading journal, analytics, a discipline tracker, and real-time price alerts.
+This is a Next.js starter application built in Firebase Studio. It's a comprehensive toolkit for traders, combining a detailed trading journal, analytics, a discipline tracker, and an AI-powered market analyzer.
 
 ## Getting Started
 
@@ -21,17 +21,12 @@ This application is configured for deployment using Firebase App Hosting.
 
 ### Deployment Steps
 
-1.  **Set Your Finnhub API Key:** The price alert feature requires a Finnhub API key. Store it securely in your Firebase environment by running this command (replace `YOUR_API_KEY` with your actual key):
-    ```bash
-    firebase functions:config:set finnhub.key="YOUR_API_KEY"
-    ```
-
-2.  **Initialize App Hosting:** If you haven't already, run the following command and follow the prompts to connect your local project to Firebase:
+1.  **Initialize App Hosting:** If you haven't already, run the following command and follow the prompts to connect your local project to Firebase:
     ```bash
     firebase init apphosting
     ```
 
-3.  **Deploy the Application:**
+2.  **Deploy the Application:**
     ```bash
     firebase deploy
     ```
