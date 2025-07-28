@@ -212,19 +212,19 @@ const CommunityPost = React.memo(({ post, onPostUpdated }: { post: Post; onPostU
     const isAuthor = user?.uid === post.authorId;
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     
-    const handleFollow = async () => {
-        if (!user) {
-            toast({ title: "Please log in", description: "You must be logged in to follow users.", variant: "destructive" });
-            return;
-        }
-        try {
-            await followUser(db, user.uid, post.authorId);
-            toast({ title: "Success", description: `You are now following ${post.authorName}.` });
-        } catch (error) {
-            console.error("Error following user:", error);
-            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
-        }
-    };
+    // const handleFollow = async () => {
+    //     if (!user) {
+    //         toast({ title: "Please log in", description: "You must be logged in to follow users.", variant: "destructive" });
+    //         return;
+    //     }
+    //     try {
+    //         await followUser(db, user.uid, post.authorId);
+    //         toast({ title: "Success", description: `You are now following ${post.authorName}.` });
+    //     } catch (error) {
+    //         console.error("Error following user:", error);
+    //         toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+    //     }
+    // };
 
     const handleDelete = async (postId: string) => {
         if (window.confirm("Are you sure you want to delete this post?")) {
@@ -257,11 +257,11 @@ const CommunityPost = React.memo(({ post, onPostUpdated }: { post: Post; onPostU
                                     <span className="text-sm text-muted-foreground">· {timeAgo}</span>
                                 </div>
                                 <div className="flex items-center">
-                                    {user && user.uid !== post.authorId && (
+                                    {/* {user && user.uid !== post.authorId && (
                                         <Button variant="outline" size="sm" onClick={handleFollow}>
                                             <UserPlus className="mr-1 h-4 w-4" /> Follow
                                         </Button>
-                                    )}
+                                    )} */}
                                     {isAuthor && (
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
@@ -321,9 +321,12 @@ const UserSearch = () => {
             const usersData = snapshot.docs.map(doc => doc.data() as UserProfile);
             setResults(usersData);
             setIsSearching(false);
+        }, (error) => {
+            console.error("User search failed:", error);
+            setIsSearching(false);
         });
 
-        return () => unsubscribe(); // This is the cleanup function
+        return () => unsubscribe();
     }, [searchTerm]);
 
     return (
