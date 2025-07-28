@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, Target, Scale, BrainCircuit, Loader2, PlusCircle, Trash2, Wallet, Edit, FileText, Image as ImageIcon } from 'lucide-react';
 import { add, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, Pie, PieChart, RadialBar, RadialBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -25,6 +25,8 @@ import type { Trade } from '@/components/add-trade-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
 
 type Account = {
     id: string;
@@ -184,6 +186,9 @@ const PerformanceDashboard = () => {
     const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
     const [trades, setTrades] = useState<Trade[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedDayTrades, setSelectedDayTrades] = useState<Trade[]>([]);
+    const [isDayDetailOpen, setIsDayDetailOpen] = useState(false);
+    const [viewingImage, setViewingImage] = useState<string | null>(null);
 
      useEffect(() => {
         if (user) {
@@ -304,6 +309,18 @@ const PerformanceDashboard = () => {
 
     const nextMonth = () => setCurrentDate(add(currentDate, { months: 1 }));
     const prevMonth = () => setCurrentDate(add(currentDate, { months: -1 }));
+
+    const handleDayClick = (day: Date) => {
+        const dayStr = format(day, 'yyyy-MM-dd');
+        const accountTrades = trades.filter(trade => trade.accountIds && selectedAccount && trade.accountIds.includes(selectedAccount));
+        const dayTrades = accountTrades.filter(trade => format(parseISO(trade.date), 'yyyy-MM-dd') === dayStr);
+
+        if (dayTrades.length > 0) {
+            setSelectedDayTrades(dayTrades);
+            setIsDayDetailOpen(true);
+        }
+    };
+
 
     if (isLoading) {
         return (
@@ -481,7 +498,9 @@ const PerformanceDashboard = () => {
                            const isCurrentMonth = isSameMonth(day, currentDate);
                            
                            return (
-                               <div key={dayStr} className={cn(
+                               <div key={dayStr}
+                                onClick={() => handleDayClick(day)}
+                                className={cn(
                                    "relative aspect-square p-1.5 text-left border-r border-b flex flex-col",
                                    !isCurrentMonth ? "bg-card/20 text-muted-foreground/50" : "bg-card/50",
                                    (index + 1) % 7 === 0 && "border-r-0",
@@ -489,6 +508,7 @@ const PerformanceDashboard = () => {
                                    isToday(day) && "ring-2 ring-primary ring-inset",
                                    data && data.pnl > 0 && "bg-green-800/20",
                                    data && data.pnl <= 0 && "bg-red-800/20",
+                                   data && isCurrentMonth && 'cursor-pointer hover:bg-muted transition-colors'
                                )}>
                                    <div className={cn("text-xs sm:text-sm", isCurrentMonth ? "font-medium" : "font-normal")}>
                                        {format(day, 'd')}
@@ -510,6 +530,85 @@ const PerformanceDashboard = () => {
                     </div>
                 </CardContent>
             </Card>
+
+            <Dialog open={isDayDetailOpen} onOpenChange={setIsDayDetailOpen}>
+                <DialogContent className="sm:max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Trades for {selectedDayTrades.length > 0 ? format(parseISO(selectedDayTrades[0].date), 'MMMM d, yyyy') : ''}</DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-4">
+                        {selectedDayTrades.map(trade => {
+                             const currentAccount = selectedAccount ? accounts.find(acc => acc.id === selectedAccount) : null;
+                             const pnl = currentAccount ? (currentAccount.balance * 0.01) * (trade.rr || 0) : 0;
+                            return (
+                                <Card key={trade.id} className="p-4">
+                                     <div className="flex justify-between items-start">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="font-semibold">{trade.pair}</h4>
+                                                 <Badge
+                                                    variant={trade.type === "buy" ? "default" : "destructive"}
+                                                    className={cn("h-5", trade.type === 'buy' ? 'bg-green-500' : 'bg-red-500')}
+                                                >
+                                                    {trade.type}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">{trade.setup}</p>
+                                        </div>
+                                        <div className="text-right">
+                                             <p className={cn("font-bold", pnl >= 0 ? 'text-green-500' : 'text-red-500')}>
+                                                {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
+                                             </p>
+                                            <p className="text-sm text-muted-foreground">{(trade.rr || 0).toFixed(2)}R</p>
+                                        </div>
+                                     </div>
+                                     {trade.notes && (
+                                         <div className="mt-2 space-y-1">
+                                             <h5 className="font-semibold flex items-center gap-2 text-sm"><FileText size={14}/> Notes</h5>
+                                             <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded-md border whitespace-pre-wrap">{trade.notes}</p>
+                                         </div>
+                                     )}
+                                     {trade.screenshot && (
+                                        <div className="mt-2 space-y-1">
+                                            <h5 className="font-semibold flex items-center gap-2 text-sm"><ImageIcon size={14}/> Chart</h5>
+                                            <div
+                                                className="relative w-full h-48 rounded-md border overflow-hidden cursor-pointer group"
+                                                onClick={() => {
+                                                    setViewingImage(trade.screenshot!);
+                                                    setIsDayDetailOpen(false);
+                                                }}
+                                            >
+                                                <Image src={trade.screenshot} alt="Trade Screenshot" layout="fill" objectFit="cover" />
+                                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <p className="text-white font-semibold">Click to enlarge</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                     )}
+                                </Card>
+                            )
+                        })}
+                    </div>
+                </DialogContent>
+            </Dialog>
+            <Dialog open={!!viewingImage} onOpenChange={(isOpen) => {
+                 if (!isOpen) {
+                    setViewingImage(null);
+                    setIsDayDetailOpen(true);
+                 }
+            }}>
+                <DialogContent className="max-w-4xl">
+                    <DialogHeader>
+                        <DialogTitle>Trade Screenshot</DialogTitle>
+                    </DialogHeader>
+                    {viewingImage && (
+                        <div className="mt-4">
+                            <Image src={viewingImage} alt="Trade Screenshot" width={1200} height={800} className="rounded-md" />
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
         </div>
     )
 }
@@ -763,3 +862,5 @@ export default function AnalyticsPage() {
         </div>
     );
 }
+
+    
