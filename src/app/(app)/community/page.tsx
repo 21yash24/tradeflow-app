@@ -75,7 +75,7 @@ const EditPostDialog = ({ post, isOpen, onOpenChange, onPostUpdated }: { post: P
 };
 
 
-const CommunityPost = React.memo(({ post, onPostDeleted, onPostUpdated }: { post: Post; onPostDeleted: (postId: string) => void; onPostUpdated: () => void; }) => {
+const CommunityPost = React.memo(({ post, onPostUpdated }: { post: Post; onPostUpdated: () => void; }) => {
     const [user] = useAuthState(auth);
     const { toast } = useToast();
     const postDate = post.createdAt?.toDate();
@@ -97,12 +97,11 @@ const CommunityPost = React.memo(({ post, onPostDeleted, onPostUpdated }: { post
         }
     };
 
-    const handleDelete = async () => {
+    const handleDelete = async (postId: string) => {
         if (window.confirm("Are you sure you want to delete this post?")) {
             try {
-                await deleteDoc(doc(db, 'posts', post.id));
+                await deleteDoc(doc(db, 'posts', postId));
                 toast({ title: "Post Deleted", description: "Your post has been removed." });
-                // No need to call onPostDeleted, snapshot listener will update the state
             } catch (error) {
                 console.error("Error deleting post:", error);
                 toast({ title: "Error", description: "Failed to delete the post.", variant: "destructive" });
@@ -145,7 +144,7 @@ const CommunityPost = React.memo(({ post, onPostDeleted, onPostUpdated }: { post
                                                 <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
                                                     <Edit className="mr-2 h-4 w-4"/> Edit
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                                                <DropdownMenuItem onClick={() => handleDelete(post.id)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4"/> Delete
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
@@ -301,10 +300,6 @@ const CommunityPage = () => {
         }
     };
     
-    const onPostDeleted = useCallback((postId: string) => {
-      setPosts(prevPosts => prevPosts.filter(p => p.id !== postId));
-    }, []);
-
     const onPostUpdated = useCallback(() => {
       // The onSnapshot listener will automatically update the UI, 
       // but we could force a re-fetch here if needed.
@@ -354,7 +349,7 @@ const CommunityPage = () => {
                 </div>
             ) : (
                 posts.map((post) => (
-                    <CommunityPost key={post.id} post={post} onPostDeleted={onPostDeleted} onPostUpdated={onPostUpdated} />
+                    <CommunityPost key={post.id} post={post} onPostUpdated={onPostUpdated} />
                 ))
             )}
         </div>
@@ -363,5 +358,3 @@ const CommunityPage = () => {
 };
 
 export default CommunityPage;
-
-    

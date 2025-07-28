@@ -215,8 +215,6 @@ export default function JournalPage() {
     setIsAnalyzing(true);
     setAnalysisResult(null);
 
-    // Since P/L is not stored, we'll calculate an "average" P/L for the analysis
-    // across all associated accounts. This is just for the AI context.
     const averagePnl = (viewingTrade.accountIds || []).reduce((sum, accId) => {
         const account = accounts[accId];
         if (account) {

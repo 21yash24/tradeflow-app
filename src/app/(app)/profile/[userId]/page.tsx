@@ -206,7 +206,7 @@ const UserStat = ({ value, label }: { value: string | number; label: string }) =
   </div>
 );
 
-const CommunityPost = React.memo(({ post, onPostDeleted, onPostUpdated }: { post: Post, onPostDeleted: (postId: string) => void; onPostUpdated: () => void; }) => {
+const CommunityPost = React.memo(({ post, onPostUpdated }: { post: Post, onPostUpdated: () => void; }) => {
     const postDate = post.createdAt?.toDate();
     const timeAgo = postDate ? formatDistanceToNow(postDate, { addSuffix: true }) : 'just now';
     const { toast } = useToast();
@@ -214,12 +214,11 @@ const CommunityPost = React.memo(({ post, onPostDeleted, onPostUpdated }: { post
     const isAuthor = user?.uid === post.authorId;
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-    const handleDelete = async () => {
+    const handleDelete = async (postId: string) => {
         if (window.confirm("Are you sure you want to delete this post?")) {
             try {
-                await deleteDoc(doc(db, 'posts', post.id));
+                await deleteDoc(doc(db, 'posts', postId));
                 toast({ title: "Post Deleted", description: "Your post has been removed." });
-                // No need to call onPostDeleted, snapshot listener will update the state
             } catch (error) {
                 console.error("Error deleting post:", error);
                 toast({ title: "Error", description: "Failed to delete the post.", variant: "destructive" });
@@ -257,7 +256,7 @@ const CommunityPost = React.memo(({ post, onPostDeleted, onPostUpdated }: { post
                                         <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
                                             <Edit className="mr-2 h-4 w-4"/> Edit
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                                        <DropdownMenuItem onClick={() => handleDelete(post.id)} className="text-destructive">
                                             <Trash2 className="mr-2 h-4 w-4"/> Delete
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
@@ -405,10 +404,6 @@ export default function UserProfilePage() {
         toast({ title: "Unfollowed", description: `You are no longer following ${profileUser?.displayName}.` });
     };
 
-    const onPostDeleted = useCallback((postId: string) => {
-      setUserPosts(prevPosts => prevPosts.filter(p => p.id !== postId));
-    }, []);
-
     const onPostUpdated = useCallback(() => {
         // The onSnapshot listener will automatically update the UI
     }, []);
@@ -472,7 +467,7 @@ export default function UserProfilePage() {
                     </div>
                 ) : (
                     userPosts.map(post => (
-                        <CommunityPost key={post.id} post={post} onPostDeleted={onPostDeleted} onPostUpdated={onPostUpdated} />
+                        <CommunityPost key={post.id} post={post} onPostUpdated={onPostUpdated} />
                     ))
                 )}
             </div>
@@ -488,5 +483,3 @@ export default function UserProfilePage() {
         </div>
     );
 }
-
-    

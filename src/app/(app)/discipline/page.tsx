@@ -19,8 +19,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-type ChecklistState = Record<string, boolean>;
-
 type DisciplineData = {
     id: string; // Document ID: `${user.uid}_${date}`
     lastCompletedDate?: string;
@@ -214,7 +212,6 @@ const DisciplineTrackerPage = () => {
             try {
                 await deleteDoc(doc(db, 'discipline', docId));
                 toast({ title: 'Entry Deleted', description: 'The historical log has been removed.' });
-                // The onSnapshot listener will automatically update the UI
             } catch (error) {
                 console.error("Error deleting history entry:", error);
                 toast({ title: 'Error', description: 'Failed to delete the entry.', variant: 'destructive' });
@@ -388,5 +385,3 @@ const DisciplineTrackerPage = () => {
 }
 
 export default DisciplineTrackerPage;
-
-    
