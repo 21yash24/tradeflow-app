@@ -63,5 +63,3 @@ const marketAnalyzerFlow = ai.defineFlow(
         return output!;
     }
 );
-
-    
