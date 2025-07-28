@@ -72,12 +72,15 @@ export default function SignupPage() {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex items-center justify-center min-h-screen bg-background p-4">
             <Card className="mx-auto max-w-sm w-full">
-                 <CardHeader className="text-center">
-                    <TradeFlowLogo className="mx-auto h-10 w-10 text-primary mb-4" />
+                 <CardHeader className="text-center space-y-4">
+                     <div className="flex flex-col items-center gap-2">
+                         <TradeFlowLogo className="mx-auto h-12 w-12 text-primary" />
+                         <h1 className="text-2xl font-bold font-headline">TradeFlow</h1>
+                    </div>
                     <CardTitle>Create an Account</CardTitle>
-                    <CardDescription>Enter your details to start your trading journal</CardDescription>
+                    <CardDescription>Unlock Your Trading Potential</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

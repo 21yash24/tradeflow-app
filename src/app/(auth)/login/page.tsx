@@ -55,10 +55,13 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex items-center justify-center min-h-screen bg-background p-4">
             <Card className="mx-auto max-w-sm w-full">
-                <CardHeader className="text-center">
-                    <TradeFlowLogo className="mx-auto h-10 w-10 text-primary mb-4" />
+                <CardHeader className="text-center space-y-4">
+                    <div className="flex flex-col items-center gap-2">
+                         <TradeFlowLogo className="mx-auto h-12 w-12 text-primary" />
+                         <h1 className="text-2xl font-bold font-headline">TradeFlow</h1>
+                    </div>
                     <CardTitle>Welcome Back</CardTitle>
                     <CardDescription>Enter your email below to login to your account</CardDescription>
                 </CardHeader>
@@ -70,7 +73,12 @@ export default function LoginPage() {
                              {form.formState.errors.email && <p className="text-xs text-red-500">{form.formState.errors.email.message}</p>}
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="password">Password</Label>
+                            <div className="flex items-center">
+                                <Label htmlFor="password">Password</Label>
+                                <Link href="#" className="ml-auto inline-block text-xs underline">
+                                    Forgot your password?
+                                </Link>
+                            </div>
                             <Input id="password" type="password" {...form.register("password")} />
                              {form.formState.errors.password && <p className="text-xs text-red-500">{form.formState.errors.password.message}</p>}
                         </div>
