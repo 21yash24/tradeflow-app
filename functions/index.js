@@ -7,15 +7,19 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
-// Set your Finnhub API key here. It's recommended to use environment variables for this.
-// In Firebase Functions, you can set them using:
+// It's recommended to use environment variables for your API key.
+// Set it in your Firebase environment by running this command in your terminal:
 // firebase functions:config:set finnhub.key="YOUR_API_KEY"
-// const FINNHUB_API_KEY = functions.config().finnhub.key;
-// For now, I'll hardcode the one you provided.
-const FINNHUB_API_KEY = "d23mocpr01qg1okka7kgd23mocpr01qg1okka7l0";
+const FINNHUB_API_KEY = functions.config().finnhub?.key;
+
 
 exports.checkPriceAlerts = functions.pubsub.schedule("every 1 minutes").onRun(async (context) => {
   console.log("Checking for price alerts...");
+  
+  if (!FINNHUB_API_KEY) {
+    console.error("Finnhub API key not configured. Set it with `firebase functions:config:set finnhub.key=\"YOUR_API_KEY\"`");
+    return null;
+  }
 
   const activeAlertsSnapshot = await db.collection("alerts").where("active", "==", true).where("triggered", "==", false).get();
 
