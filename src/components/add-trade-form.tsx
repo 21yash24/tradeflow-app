@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm, useFieldArray } from "react-hook-form";
@@ -24,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { CalendarIcon, Upload, Loader2 } from "lucide-react";
+import { CalendarIcon, Upload, Loader2, Check } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -52,6 +53,12 @@ const rrSchema = z.object({
   rr: z.coerce.number(),
 });
 
+const checklistItemWithStateSchema = z.object({
+    id: z.string(),
+    label: z.string(),
+    checked: z.boolean(),
+});
+
 const formSchema = z.object({
   pair: z.string().min(1, "Currency pair is required."),
   date: z.date({ required_error: "A date is required." }),
@@ -62,6 +69,8 @@ const formSchema = z.object({
   mentalState: z.string().optional(),
   screenshot: z.string().optional(),
   rrValues: z.array(rrSchema).min(1, "At least one account's R:R must be set."),
+  preTradeChecklist: z.array(checklistItemWithStateSchema).optional(),
+  setupGrade: z.string().optional(),
 });
 
 
@@ -85,10 +94,16 @@ type AddTradeFormProps = {
   onBack: () => void;
   initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date };
   accounts: Account[];
+  checklistData?: {
+    items: (ChecklistItem & { checked: boolean })[];
+    grade: string;
+  } | null;
 };
 
+type ChecklistItemWithState = ChecklistItem & { checked: boolean };
 
-function PreTradeChecklist({ onContinue, isEditMode }: { onContinue: () => void, isEditMode: boolean }) {
+
+function PreTradeChecklist({ onContinue, isEditMode }: { onContinue: (data: { items: ChecklistItemWithState[], grade: string}) => void, isEditMode: boolean }) {
     const [user] = useAuthState(auth);
     const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -129,6 +144,14 @@ function PreTradeChecklist({ onContinue, isEditMode }: { onContinue: () => void,
         setCheckedItems(prev => ({ ...prev, [id]: checked }));
     }
 
+    const handleContinueClick = () => {
+        const itemsWithState = checklistItems.map(item => ({
+            ...item,
+            checked: !!checkedItems[item.id]
+        }));
+        onContinue({ items: itemsWithState, grade });
+    }
+
     if (isLoading) {
          return (
             <div className="flex justify-center items-center h-48">
@@ -139,7 +162,7 @@ function PreTradeChecklist({ onContinue, isEditMode }: { onContinue: () => void,
 
     // Skip checklist if in edit mode
     if (isEditMode) {
-        onContinue();
+        onContinue({ items: [], grade: 'N/A' });
         return null;
     }
 
@@ -172,7 +195,7 @@ function PreTradeChecklist({ onContinue, isEditMode }: { onContinue: () => void,
                 <p className="text-muted-foreground text-center py-4">No pre-trade checklist items found. You can add them in Settings.</p>
             )}
             <div className="mt-6 flex justify-end">
-                <Button onClick={onContinue}>
+                <Button onClick={handleContinueClick}>
                     Continue
                 </Button>
             </div>
@@ -181,7 +204,7 @@ function PreTradeChecklist({ onContinue, isEditMode }: { onContinue: () => void,
 }
 
 
-function AddTradeForm({ onSubmit, onBack, initialData, accounts }: AddTradeFormProps) {
+function AddTradeForm({ onSubmit, onBack, initialData, accounts, checklistData }: AddTradeFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isEditMode = !!initialData;
   const [applyAllRr, setApplyAllRr] = useState('');
@@ -200,7 +223,9 @@ function AddTradeForm({ onSubmit, onBack, initialData, accounts }: AddTradeFormP
       rrValues: initialData?.accountIds?.map(id => ({
           accountId: id,
           rr: initialData.rrDetails?.[id] ?? initialData.rr
-      })) || (accounts.length > 0 ? [{ accountId: accounts[0].id, rr: 2 }] : [])
+      })) || (accounts.length > 0 ? [{ accountId: accounts[0].id, rr: 2 }] : []),
+      preTradeChecklist: initialData?.preTradeChecklist || checklistData?.items,
+      setupGrade: initialData?.setupGrade || checklistData?.grade,
     },
   });
 
@@ -258,6 +283,8 @@ function AddTradeForm({ onSubmit, onBack, initialData, accounts }: AddTradeFormP
         accountIds: accountIds,
         rrDetails: rrDetails,
         rr: rr,
+        preTradeChecklist: values.preTradeChecklist,
+        setupGrade: values.setupGrade,
     };
     
     onSubmit(finalValues);
@@ -537,9 +564,18 @@ export function AddTradeFlow({
     onDone: () => void,
 }) {
     const [step, setStep] = useState(initialData ? 2 : 1);
+    const [checklistData, setChecklistData] = useState<{
+        items: ChecklistItemWithState[];
+        grade: string;
+    } | null>(null);
+
+    const handleChecklistContinue = (data: { items: ChecklistItemWithState[], grade: string}) => {
+        setChecklistData(data);
+        setStep(2);
+    }
 
     if (step === 1) {
-        return <PreTradeChecklist onContinue={() => setStep(2)} isEditMode={!!initialData} />;
+        return <PreTradeChecklist onContinue={handleChecklistContinue} isEditMode={!!initialData} />;
     }
 
     return <AddTradeForm 
@@ -547,7 +583,6 @@ export function AddTradeFlow({
                 onBack={() => setStep(1)} 
                 initialData={initialData} 
                 accounts={accounts}
+                checklistData={checklistData}
             />;
 }
-
-    

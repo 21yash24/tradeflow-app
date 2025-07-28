@@ -1,10 +1,11 @@
 
+
 'use client';
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2, Edit, Undo, EyeOff } from "lucide-react";
+import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2, Edit, Undo, EyeOff, Check, X } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -260,13 +261,29 @@ export default function JournalPage() {
     }
   }
   
+    const getGradeColor = (grade?: string) => {
+        switch (grade) {
+            case 'A+': return 'bg-green-500/20 text-green-400 border-green-500/30';
+            case 'B': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+            case 'C': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+            case 'D': return 'bg-red-500/20 text-red-400 border-red-500/30';
+            default: return 'bg-muted text-muted-foreground';
+        }
+    }
+
   const renderTradeRow = (trade: Trade, isDeletedView = false) => {
     const hasAccounts = trade.accountIds && trade.accountIds.length > 0;
     const firstAccountName = hasAccounts && accounts[trade.accountIds[0]] ? accounts[trade.accountIds[0]].name : 'N/A';
     const remainingAccounts = hasAccounts ? trade.accountIds.length - 1 : 0;
-    const avgRr = hasAccounts && trade.rrDetails 
-        ? Object.values(trade.rrDetails).reduce((sum, val) => sum + val, 0) / Object.values(trade.rrDetails).length
-        : trade.rr || 0;
+    
+    let avgRr = 0;
+    if (hasAccounts && trade.rrDetails) {
+        const rValues = Object.values(trade.rrDetails);
+        avgRr = rValues.reduce((sum, val) => sum + val, 0) / rValues.length;
+    } else {
+        avgRr = trade.rr || 0;
+    }
+
 
     return (
         <TableRow key={trade.id}>
@@ -291,13 +308,14 @@ export default function JournalPage() {
                 </Badge>
             </TableCell>
             <TableCell
-                className={
-                (avgRr) >= 0 ? "text-green-400" : "text-red-400"
-                }
+                className={cn((avgRr) >= 0 ? "text-green-400" : "text-red-400")}
             >
                 {avgRr.toFixed(2)}R
             </TableCell>
             <TableCell>{trade.setup}</TableCell>
+             <TableCell>
+                {trade.setupGrade && <Badge className={cn("text-xs", getGradeColor(trade.setupGrade))}>{trade.setupGrade}</Badge>}
+            </TableCell>
             <TableCell className="text-center">
                 {trade.screenshot && (
                     <Button variant="ghost" size="icon" onClick={() => setViewingImage(trade.screenshot!)}>
@@ -385,6 +403,7 @@ export default function JournalPage() {
                             <TableHead>Type</TableHead>
                             <TableHead>R:R</TableHead>
                             <TableHead>Setup</TableHead>
+                            <TableHead>Grade</TableHead>
                             <TableHead className="text-center">Chart</TableHead>
                             <TableHead></TableHead>
                         </TableRow>
@@ -392,13 +411,13 @@ export default function JournalPage() {
                         <TableBody>
                         {isLoadingTrades ? (
                             <TableRow>
-                            <TableCell colSpan={8} className="text-center py-12">
+                            <TableCell colSpan={9} className="text-center py-12">
                                 <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
                             </TableCell>
                             </TableRow>
                         ) : activeTrades.length === 0 ? (
                             <TableRow>
-                            <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                            <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                                 No trades logged yet. Click "Add Trade" to start.
                             </TableCell>
                             </TableRow>
@@ -424,6 +443,7 @@ export default function JournalPage() {
                             <TableHead>Type</TableHead>
                             <TableHead>R:R</TableHead>
                             <TableHead>Setup</TableHead>
+                            <TableHead>Grade</TableHead>
                             <TableHead className="text-center">Chart</TableHead>
                             <TableHead></TableHead>
                         </TableRow>
@@ -431,13 +451,13 @@ export default function JournalPage() {
                         <TableBody>
                         {isLoadingTrades ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center py-12">
+                                <TableCell colSpan={9} className="text-center py-12">
                                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
                                 </TableCell>
                             </TableRow>
                         ) : deletedTrades.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                                <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                                     No deleted trades.
                                 </TableCell>
                             </TableRow>
@@ -493,6 +513,28 @@ export default function JournalPage() {
                     </div>
 
                     <Separator />
+                    
+                    {viewingTrade.preTradeChecklist && viewingTrade.preTradeChecklist.length > 0 && (
+                         <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                                <h4 className="font-semibold">Pre-Trade Checklist</h4>
+                                <Badge className={cn("text-xs", getGradeColor(viewingTrade.setupGrade))}>
+                                    Grade: {viewingTrade.setupGrade}
+                                </Badge>
+                            </div>
+                            <div className="space-y-2 rounded-md border p-3 text-sm">
+                                {viewingTrade.preTradeChecklist.map(item => (
+                                    <div key={item.id} className="flex items-center gap-2">
+                                        {item.checked ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
+                                        <span className={cn(item.checked ? 'text-foreground' : 'text-muted-foreground line-through')}>
+                                            {item.label}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                         </div>
+                    )}
+
 
                     <div className="space-y-2">
                         <h4 className="font-semibold">Accounts & P/L</h4>
@@ -579,5 +621,3 @@ export default function JournalPage() {
     </div>
   );
 }
-
-    
