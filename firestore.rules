@@ -1,73 +1,101 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // Helper function to check if the user owns the document
+    // Helper function to check if a user is authenticated and is the owner of a document
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    // Users collection rules
+    // USERS
     match /users/{userId} {
-      // Any authenticated user can read public profiles
-      allow read: if isAuthenticated();
-      // Only the owner can create or update their own profile
-      allow create, update: if isAuthenticated() && isOwner(userId);
-      
-      // Rules for the 'followers' subcollection
-      match /followers/{followerId} {
-        // A user can only add/remove themselves as a follower
-        allow create, delete: if isAuthenticated() && isOwner(followerId);
-        // Any authenticated user can see who follows another user
-        allow read: if isAuthenticated();
-      }
+      // Anyone authenticated can read a user's public profile
+      allow read: if request.auth != null;
+      // Only the owner can create or update their profile
+      allow create, update: if isOwner(userId);
 
-      // Rules for the 'following' subcollection
-      match /following/{followingId} {
-         // A user can only manage their own 'following' list
-        allow create, delete: if isAuthenticated() && isOwner(userId);
-         // Any authenticated user can see who a user is following
-        allow read: if isAuthenticated();
+      // Following/Followers sub-collections for social features
+      match /following/{targetUserId} {
+        allow read, create, delete: if isOwner(userId);
+      }
+      match /followers/{followerUserId} {
+        allow read: if request.auth != null;
+        allow create, delete: if isOwner(followerUserId);
       }
     }
     
-    // Posts collection rules
+    // POSTS
     match /posts/{postId} {
-        // Any authenticated user can read posts
-        allow read: if isAuthenticated();
-        // A user can create a post, and only the author can update or delete it
-        allow create: if isAuthenticated();
-        allow update, delete: if isAuthenticated() && isOwner(resource.data.authorId);
+      // Anyone authenticated can read posts
+      allow read: if request.auth != null;
+      // Authenticated users can create posts, but can only update/delete their own
+      allow create: if request.auth != null;
+      allow update, delete: if isOwner(resource.data.authorId);
+
+      // Likes sub-collection
+      match /likes/{userId} {
+        // A user can only like/unlike for themselves
+        allow create, delete: if isOwner(userId);
+        // Allow anyone to see who liked a post
+        allow read: if request.auth != null;
+      }
+      
+      // Comments sub-collection
+      match /comments/{commentId} {
+        // Anyone authenticated can read comments
+        allow read: if request.auth != null;
+        // Authenticated users can create comments
+        allow create: if request.auth != null;
+        // Only the author of the comment can update or delete it
+        allow update, delete: if isOwner(resource.data.authorId);
+      }
+    }
+    
+    // GROUPS
+    match /groups/{groupId} {
+       // Anyone authenticated can create a group
+       allow create: if request.auth != null;
+       // Only group members can read group data
+       allow read: if exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+       // Only the group creator can update or delete it (could be expanded to admins)
+       allow update, delete: if get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin';
+       
+       // Group Members sub-collection
+       match /members/{userId} {
+         // Users can join/leave a group (become a member of their own accord)
+         allow create, delete: if isOwner(userId);
+         // Members can read the member list
+         allow read: if exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+         // Only admins can change roles (future-proofing)
+         allow update: if get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin';
+       }
     }
 
-    // Alerts collection rules
+    // Alerts collection
     match /alerts/{alertId} {
-      allow read, create, update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+      allow read, create, update, delete: if isOwner(resource.data.userId);
     }
-    
-    // Trades collection rules
+
+    // Trades collection
     match /trades/{tradeId} {
-       allow read, create, update, delete: if isAuthenticated() && isOwner(resource.data.userId);
-    }
-
-    // Accounts collection rules
-     match /accounts/{accountId} {
-       allow read, create, update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+      allow read, create, update, delete: if isOwner(resource.data.userId);
     }
     
-    // Discipline collection rules
-    match /discipline/{disciplineId} {
-        allow read, create, update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+    // Accounts collection
+    match /accounts/{accountId} {
+      allow read, create, update, delete: if isOwner(resource.data.userId);
     }
 
-    // Streaks collection rules
+    // Discipline collection
+    match /discipline/{disciplineId} {
+      // The disciplineId is composite: `${user.uid}_${date}`
+      allow read, create, update, delete: if request.auth != null && request.auth.uid == split(disciplineId, '_')[0];
+    }
+
+    // Streaks collection
     match /streaks/{streakId} {
-       allow read, create, update, delete: if isAuthenticated() && isOwner(streakId);
+      allow read, write: if isOwner(streakId);
     }
   }
 }
