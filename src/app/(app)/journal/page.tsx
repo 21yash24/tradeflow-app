@@ -195,16 +195,17 @@ export default function JournalPage() {
     setIsAnalyzing(false);
   };
 
-  const handleDeleteTrade = async (tradeId: string) => {
+  const handleDeleteTrade = (tradeId: string) => {
     if (window.confirm("Are you sure you want to delete this trade? This action cannot be undone.")) {
-        try {
-            await deleteDoc(doc(db, "trades", tradeId));
-            toast({ title: "Trade Deleted", description: "The trade has been removed from your journal."});
-            handleCloseDetails();
-        } catch(error) {
-            console.error("Error deleting trade:", error);
-            toast({ title: "Error", description: "Could not delete trade.", variant: "destructive"});
-        }
+        deleteDoc(doc(db, "trades", tradeId))
+            .then(() => {
+                toast({ title: "Trade Deleted", description: "The trade has been removed from your journal."});
+                handleCloseDetails();
+            })
+            .catch((error) => {
+                console.error("Error deleting trade:", error);
+                toast({ title: "Error", description: "Could not delete trade.", variant: "destructive"});
+            });
     }
   }
 
@@ -216,13 +217,13 @@ export default function JournalPage() {
 
     // Since P/L is not stored, we'll calculate an "average" P/L for the analysis
     // across all associated accounts. This is just for the AI context.
-    const averagePnl = viewingTrade.accountIds.reduce((sum, accId) => {
+    const averagePnl = (viewingTrade.accountIds || []).reduce((sum, accId) => {
         const account = accounts[accId];
         if (account) {
-            return sum + ((account.balance * 0.01) * viewingTrade.rr);
+            return sum + ((account.balance * 0.01) * (viewingTrade.rr || 0));
         }
         return sum;
-    }, 0) / viewingTrade.accountIds.length;
+    }, 0) / (viewingTrade.accountIds?.length || 1);
 
 
     try {
@@ -423,7 +424,7 @@ export default function JournalPage() {
                     <div className="space-y-2">
                         <h4 className="font-semibold">Accounts & P/L</h4>
                         <div className="space-y-2 rounded-md border p-3">
-                            {viewingTrade.accountIds.map(accId => {
+                            {viewingTrade.accountIds && viewingTrade.accountIds.map(accId => {
                                 const account = accounts[accId];
                                 if (!account) return null;
                                 const pnl = (account.balance * 0.01) * (viewingTrade.rr || 0);
@@ -500,5 +501,3 @@ export default function JournalPage() {
     </div>
   );
 }
-
-    
