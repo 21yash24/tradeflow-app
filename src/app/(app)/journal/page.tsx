@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2, Edit } from "lucide-react";
@@ -34,12 +34,14 @@ import { useAuthState } from "react-firebase-hooks/auth";
 import { useToast } from "@/hooks/use-toast";
 import { parseISO, format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { deleteTrade } from "@/services/trade-actions";
 
 type Account = {
     id: string;
     name: string;
     balance: number;
 }
+
 
 function TradeAnalysisResult({ analysis }: { analysis: TradeAnalysis }) {
     return (
@@ -194,19 +196,6 @@ export default function JournalPage() {
     setAnalysisResult(null);
     setIsAnalyzing(false);
   };
-
-  const handleDeleteTrade = async (tradeId: string) => {
-    if (window.confirm("Are you sure you want to delete this trade? This action cannot be undone.")) {
-        try {
-            await deleteDoc(doc(db, "trades", tradeId));
-            toast({ title: "Trade Deleted", description: "The trade has been removed from your journal."});
-            handleCloseDetails();
-        } catch (error) {
-            console.error("Error deleting trade:", error);
-            toast({ title: "Error", description: "Could not delete trade.", variant: "destructive"});
-        }
-    }
-  }
 
   const handleAnalyzeTrade = async () => {
     if (!viewingTrade) return;
@@ -485,10 +474,17 @@ export default function JournalPage() {
                            <Edit className="h-4 w-4" />
                            <span className="sr-only">Edit Trade</span>
                         </Button>
-                        <Button variant="destructive" size="icon" onClick={() => handleDeleteTrade(viewingTrade.id)}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete Trade</span>
-                        </Button>
+                        <form action={async () => {
+                            if (!viewingTrade) return;
+                            await deleteTrade(viewingTrade.id);
+                            toast({ title: "Trade Deleted", description: "The trade has been removed from your journal." });
+                            handleCloseDetails();
+                        }}>
+                             <Button variant="destructive" size="icon" type="submit">
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Delete Trade</span>
+                            </Button>
+                        </form>
                     </div>
                 </DialogFooter>
                 </>
@@ -499,3 +495,6 @@ export default function JournalPage() {
   );
 }
 
+    
+
+    
