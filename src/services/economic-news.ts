@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -6,7 +7,7 @@ const EconomicEventSchema = z.object({
   date: z.string(),
   country: z.string(),
   event: z.string(),
-  impact: z.string(),
+  impact: z.string(), // Will be set to 'Medium' for all news articles for now
   actual: z.number().nullable(),
   forecast: z.number().nullable(),
   previous: z.number().nullable(),
@@ -14,63 +15,76 @@ const EconomicEventSchema = z.object({
 
 export type EconomicEvent = z.infer<typeof EconomicEventSchema>;
 
-const FinnhubEventSchema = z.object({
-    actual: z.number().nullable().optional(),
+const MarketauxArticleSchema = z.object({
+    uuid: z.string(),
+    title: z.string(),
+    description: z.string().nullable(),
+    url: z.string().url(),
+    image_url: z.string().url().nullable(),
+    published_at: z.string(),
+    source: z.string(),
+    language: z.string(),
+    group_name: z.string().optional(),
     country: z.string().optional(),
-    estimate: z.number().nullable().optional(),
-    event: z.string().optional(),
-    impact: z.string().optional(),
-    prev: z.number().nullable().optional(),
-    time: z.string().optional(), // '14:00'
-    date: z.string().optional(), // '2024-07-29'
 });
 
-const FinnhubResponseSchema = z.array(FinnhubEventSchema);
+const MarketauxResponseSchema = z.object({
+    meta: z.object({
+        found: z.number(),
+        returned: z.number(),
+        limit: z.number(),
+        page: z.number()
+    }),
+    data: z.array(MarketauxArticleSchema)
+});
 
 
 export async function getEconomicNews(from: string, to: string): Promise<EconomicEvent[]> {
-    const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_MARKETAUX_API_KEY;
     if (!apiKey) {
-        console.error("Finnhub API key is not configured.");
+        console.error("Marketaux API key is not configured.");
         return [];
     }
 
-    const url = `https://finnhub.io/api/v1/forex/economic?from=${from}&to=${to}&token=${apiKey}`;
+    // Marketaux doesn't use a date range in the same way, we fetch recent top financial news instead.
+    const url = `https://api.marketaux.com/v1/news/all?group=top&language=en&api_token=${apiKey}`;
 
     try {
         const response = await fetch(url);
         if (!response.ok) {
-            console.error(`Finnhub API error: ${response.status} ${response.statusText}`);
+            console.error(`Marketaux API error: ${response.status} ${response.statusText}`);
             const errorBody = await response.text();
             console.error(`Error body: ${errorBody}`);
             return [];
         }
 
         const data = await response.json();
-        const parsedData = FinnhubResponseSchema.safeParse(data);
+        const parsedData = MarketauxResponseSchema.safeParse(data);
 
         if (!parsedData.success) {
-            console.error("Failed to parse Finnhub response:", parsedData.error);
+            console.error("Failed to parse Marketaux response:", parsedData.error);
             return [];
         }
         
         return parsedData.data
-            .filter(e => e.date && e.time && e.event && e.country && e.impact)
-            .map(event => {
-                const dateTimeString = `${event.date}T${event.time}:00Z`;
+            .map(article => {
+                // Map Article to EconomicEvent structure
                 return {
-                    date: new Date(dateTimeString).toISOString(),
-                    country: event.country!,
-                    event: event.event!,
-                    impact: event.impact!,
-                    actual: event.actual ?? null,
-                    forecast: event.estimate ?? null,
-                    previous: event.prev ?? null,
+                    date: new Date(article.published_at).toISOString(),
+                    // Use source as country for lack of a better field
+                    country: article.source, 
+                    event: article.title,
+                    // Marketaux doesn't provide impact, so we'll set a default
+                    impact: 'Medium', 
+                    // Marketaux news doesn't have these numeric fields
+                    actual: null,
+                    forecast: null,
+                    previous: null,
                 };
             });
 
     } catch (error) {
-        console.error("Error fetching economic news from Finnhub:", error);
+        console.error("Error fetching economic news from Marketaux:", error);
         return [];
     }
 }
