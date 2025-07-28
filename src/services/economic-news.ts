@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import { format, subDays } from 'date-fns';
+import { format, eachDayOfInterval, parseISO } from 'date-fns';
 
 const EconomicEventSchema = z.object({
   date: z.string(),
@@ -47,54 +47,48 @@ export async function getEconomicNews(from: string, to: string): Promise<Economi
         return [];
     }
 
-    // Marketaux uses published_on. We will query for news over the date range.
-    // Let's create a date range string for the API
-    const fromDate = new Date(from);
-    const toDate = new Date(to);
+    const allEvents: EconomicEvent[] = [];
     
-    // To get a good range of news, let's format dates for the API
-    const publishedOn = `[${format(fromDate, 'yyyy-MM-dd')} TO ${format(toDate, 'yyyy-MM-dd')}]`;
-
-    const url = `https://api.marketaux.com/v1/news/all?group=top&language=en&published_on=${publishedOn}&api_token=${apiKey}`;
-
     try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            console.error(`Marketaux API error: ${response.status} ${response.statusText}`);
-            const errorBody = await response.text();
-            console.error(`Error body: ${errorBody}`);
-            return [];
-        }
+        const daysToFetch = eachDayOfInterval({
+            start: parseISO(from),
+            end: parseISO(to)
+        });
 
-        const data = await response.json();
-        const parsedData = MarketauxResponseSchema.safeParse(data);
+        for (const day of daysToFetch) {
+            const formattedDate = format(day, 'yyyy-MM-dd');
+            const url = `https://api.marketaux.com/v1/news/all?group=top&language=en&published_on=${formattedDate}&api_token=${apiKey}`;
 
-        if (!parsedData.success) {
-            console.error("Failed to parse Marketaux response:", parsedData.error.toString());
-            return [];
+            const response = await fetch(url);
+            if (!response.ok) {
+                console.error(`Marketaux API error for date ${formattedDate}: ${response.status} ${response.statusText}`);
+                const errorBody = await response.text();
+                console.error(`Error body: ${errorBody}`);
+                continue; // Continue to the next day
+            }
+
+            const data = await response.json();
+            const parsedData = MarketauxResponseSchema.safeParse(data);
+
+            if (!parsedData.success) {
+                console.error(`Failed to parse Marketaux response for date ${formattedDate}:`, parsedData.error.toString());
+                continue; // Continue to the next day
+            }
+            
+            const dailyEvents = parsedData.data.map(article => ({
+                date: new Date(article.published_at).toISOString(),
+                country: article.source.split('.')[0] || 'News',
+                event: article.title,
+                impact: 'Medium',
+                actual: null,
+                forecast: null,
+                previous: null,
+            }));
+
+            allEvents.push(...dailyEvents);
         }
         
-        return parsedData.data
-            .map(article => {
-                // Map Article to EconomicEvent structure
-                return {
-                    date: new Date(article.published_at).toISOString(),
-                    // Use source as country for lack of a better field
-                    country: article.source.split('.')[0] || 'News', 
-                    event: article.title,
-                    // Marketaux doesn't provide impact, so we'll set a default
-                    impact: 'Medium', 
-                    // Marketaux news doesn't have these numeric fields
-                    actual: null,
-                    forecast: null,
-                    previous: null,
-                };
-            })
-            // Ensure we only return events within the requested date range
-            .filter(event => {
-                const eventDate = new Date(event.date);
-                return eventDate >= fromDate && eventDate <= toDate;
-            });
+        return allEvents;
 
     } catch (error) {
         console.error("Error fetching economic news from Marketaux:", error);
