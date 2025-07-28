@@ -225,18 +225,18 @@ export default function JournalPage() {
     setIsAnalyzing(false);
   }, []);
 
-  const handleDeleteTrade = useCallback(async (tradeId: string) => {
+  const handleDeleteTrade = async (tradeId: string) => {
     if (window.confirm("Are you sure you want to delete this trade? This action cannot be undone.")) {
         try {
             await deleteDoc(doc(db, "trades", tradeId));
             toast({ title: "Trade Deleted", description: "The trade has been removed from your journal."});
-            handleCloseDetails(); // This will close the dialog
+            handleCloseDetails();
         } catch (error) {
             console.error("Error deleting trade:", error);
             toast({ title: "Error", description: "Could not delete trade.", variant: "destructive"});
         }
     }
-  }, [handleCloseDetails, toast])
+  }
 
   const handleAnalyzeTrade = async () => {
     if (!viewingTrade) return;
