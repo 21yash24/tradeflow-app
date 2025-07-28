@@ -2,6 +2,7 @@
 'use server';
 
 import { z } from 'zod';
+import { format, subDays } from 'date-fns';
 
 const EconomicEventSchema = z.object({
   date: z.string(),
@@ -46,8 +47,15 @@ export async function getEconomicNews(from: string, to: string): Promise<Economi
         return [];
     }
 
-    // Marketaux doesn't use a date range in the same way, we fetch recent top financial news instead.
-    const url = `https://api.marketaux.com/v1/news/all?group=top&language=en&api_token=${apiKey}`;
+    // Marketaux uses published_on. We will query for news over the date range.
+    // Let's create a date range string for the API
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    
+    // To get a good range of news, let's format dates for the API
+    const publishedOn = `[${format(fromDate, 'yyyy-MM-dd')} TO ${format(toDate, 'yyyy-MM-dd')}]`;
+
+    const url = `https://api.marketaux.com/v1/news/all?group=top&language=en&published_on=${publishedOn}&api_token=${apiKey}`;
 
     try {
         const response = await fetch(url);
@@ -62,7 +70,7 @@ export async function getEconomicNews(from: string, to: string): Promise<Economi
         const parsedData = MarketauxResponseSchema.safeParse(data);
 
         if (!parsedData.success) {
-            console.error("Failed to parse Marketaux response:", parsedData.error);
+            console.error("Failed to parse Marketaux response:", parsedData.error.toString());
             return [];
         }
         
@@ -72,7 +80,7 @@ export async function getEconomicNews(from: string, to: string): Promise<Economi
                 return {
                     date: new Date(article.published_at).toISOString(),
                     // Use source as country for lack of a better field
-                    country: article.source, 
+                    country: article.source.split('.')[0] || 'News', 
                     event: article.title,
                     // Marketaux doesn't provide impact, so we'll set a default
                     impact: 'Medium', 
@@ -81,6 +89,11 @@ export async function getEconomicNews(from: string, to: string): Promise<Economi
                     forecast: null,
                     previous: null,
                 };
+            })
+            // Ensure we only return events within the requested date range
+            .filter(event => {
+                const eventDate = new Date(event.date);
+                return eventDate >= fromDate && eventDate <= toDate;
             });
 
     } catch (error) {
