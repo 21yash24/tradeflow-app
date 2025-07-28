@@ -2,7 +2,7 @@
 'use client';
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +11,7 @@ import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db, messaging } from "@/lib/firebase";
 import { doc, onSnapshot, updateDoc, arrayUnion } from "firebase/firestore";
 import { type UserProfile, type ChecklistItem } from "@/services/user-service";
-import { Loader2, Trash2, PlusCircle, ListChecks, Sun, Moon, LogOut, BellRing } from "lucide-react";
+import { Loader2, Trash2, PlusCircle, ListChecks, Sun, Moon, LogOut, BellRing, RefreshCw } from "lucide-react";
 import { useTheme } from "next-themes";
 import { signOut } from 'firebase/auth';
 import { useRouter } from "next/navigation";
@@ -36,7 +36,7 @@ const defaultDisciplineChecklist: ChecklistItem[] = [
     { id: 'review_day', label: 'I reviewed my performance and took notes for tomorrow.' },
 ];
 
-function ChecklistManager({ title, description, items, setItems }: { title: string, description: string, items: ChecklistItem[], setItems: (items: ChecklistItem[]) => void }) {
+function ChecklistManager({ title, description, items, setItems, onReset }: { title: string, description: string, items: ChecklistItem[], setItems: (items: ChecklistItem[]) => void, onReset: () => void }) {
     
     const handleItemChange = (id: string, newLabel: string) => {
         setItems(items.map(item => item.id === id ? { ...item, label: newLabel } : item));
@@ -54,8 +54,15 @@ function ChecklistManager({ title, description, items, setItems }: { title: stri
     return (
         <Card>
             <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle>{title}</CardTitle>
+                        <CardDescription>{description}</CardDescription>
+                    </div>
+                    <Button onClick={onReset} variant="ghost" size="sm" type="button">
+                        <RefreshCw className="mr-2 h-4 w-4" /> Reset to Default
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-3 max-h-72 overflow-y-auto pr-2">
@@ -102,6 +109,11 @@ export default function SettingsPage() {
                         ...data,
                         preTradeChecklist: data.preTradeChecklist || defaultPreTradeChecklist,
                         disciplineChecklist: data.disciplineChecklist || defaultDisciplineChecklist,
+                    });
+                } else {
+                     setProfile({
+                        preTradeChecklist: defaultPreTradeChecklist,
+                        disciplineChecklist: defaultDisciplineChecklist,
                     });
                 }
                 setIsLoading(false);
@@ -156,7 +168,17 @@ export default function SettingsPage() {
         try {
             const permission = await Notification.requestPermission();
             if (permission === 'granted') {
-                const fcmToken = await getToken(messaging, { vapidKey: 'YOUR_VAPID_KEY' }); // You need to generate a VAPID key in Firebase Console
+                // IMPORTANT: Replace this with your actual VAPID key from Firebase Console
+                // Project settings > Cloud Messaging > Web configuration > Generate key pair
+                const vapidKey = "YOUR_VAPID_KEY_HERE"; 
+                if (vapidKey === "YOUR_VAPID_KEY_HERE") {
+                    console.warn("Please replace 'YOUR_VAPID_KEY_HERE' with your actual Firebase VAPID key in src/app/(app)/settings/page.tsx");
+                     toast({ title: "Configuration Needed", description: "VAPID key not set. See browser console.", variant: "destructive" });
+                     setIsEnablingNotifications(false);
+                     return;
+                }
+
+                const fcmToken = await getToken(messaging, { vapidKey }); 
                  if (fcmToken) {
                     const userDocRef = doc(db, 'users', user.uid);
                     await updateDoc(userDocRef, {
@@ -234,12 +256,14 @@ export default function SettingsPage() {
                     description="Customize the checklist that appears before you log a trade."
                     items={profile.preTradeChecklist || []}
                     setItems={(items) => setProfile(p => ({...p, preTradeChecklist: items}))}
+                    onReset={() => setProfile(p => ({...p, preTradeChecklist: defaultPreTradeChecklist}))}
                 />
                 <ChecklistManager 
                     title="Daily Discipline Checklist"
                     description="Customize your daily habit tracker."
                     items={profile.disciplineChecklist || []}
                     setItems={(items) => setProfile(p => ({...p, disciplineChecklist: items}))}
+                    onReset={() => setProfile(p => ({...p, disciplineChecklist: defaultDisciplineChecklist}))}
                 />
             </div>
             <div className="flex justify-end mt-4">
@@ -278,3 +302,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    

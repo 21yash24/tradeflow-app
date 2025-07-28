@@ -1,64 +1,80 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users can read any profile, but only write to their own.
+    // Helper function to check ownership
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Users: Can read all profiles, but only write to their own.
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId;
-
-      // Allow users to manage their own subcollections
-      match /{subcollection}/{docId} {
-         allow read, write: if request.auth.uid == userId;
+      allow write: if isOwner(userId);
+      
+      // Followers/Following Subcollections
+      match /followers/{followerId} {
+      	allow read: if request.auth != null;
+        allow write: if isOwner(followerId); // A user can add themselves as a follower
+      }
+      match /following/{followingId} {
+      	allow read: if request.auth != null;
+      	allow write: if isOwner(request.auth.uid); // A user can manage their own following list
       }
     }
 
-    // A user can only manage their own trades.
+    // Trades: Can only be managed by the owner.
     match /trades/{tradeId} {
-      allow read, update, delete: if request.auth.uid == resource.data.userId;
-      allow create: if request.auth.uid == request.resource.data.userId;
+        allow read, update, delete: if isOwner(resource.data.userId);
+        allow create: if isOwner(request.resource.data.userId);
     }
-    
-    // A user can only manage their own accounts.
+
+    // Accounts: Can only be managed by the owner.
     match /accounts/{accountId} {
-      allow read, update, delete: if request.auth.uid == resource.data.userId;
-      allow create: if request.auth.uid == request.resource.data.userId;
+        allow read, update, delete: if isOwner(resource.data.userId);
+        allow create: if isOwner(request.resource.data.userId);
     }
     
-    // A user can only manage their own alerts.
+    // Alerts: Can only be managed by the owner.
     match /alerts/{alertId} {
-      allow read, update, delete: if request.auth.uid == resource.data.userId;
-      allow create: if request.auth.uid == request.resource.data.userId;
+        allow read, update, delete: if isOwner(resource.data.userId);
+        allow create: if isOwner(request.resource.data.userId);
     }
-
-    // A user can only manage their own discipline entries.
-    match /discipline/{disciplineId} {
-       allow read, write: if request.auth.uid == resource.data.userId;
-       allow create: if request.auth.uid == request.resource.data.userId;
+    
+    // Discipline & Streak Tracking
+    match /discipline/{docId} {
+      allow read, write: if isOwner(request.auth.uid) && request.auth.uid == docId.split('_')[0];
     }
-
-    // A user can only manage their own streak document.
     match /streaks/{userId} {
-      allow read, write: if request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
     }
-
-    // Community Posts: Any authenticated user can read.
-    // Users can only create posts for themselves.
-    // Users can only update/delete their own posts.
+    
+    // Community Posts
     match /posts/{postId} {
+      // Anyone authenticated can read posts and their likes/comments
       allow read: if request.auth != null;
-      allow create: if request.auth.uid == request.resource.data.authorId;
-      allow update, delete: if request.auth.uid == resource.data.authorId;
       
-      // Allow any authenticated user to like/unlike a post (update specific fields)
-      allow update: if request.auth.uid != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likeCount']);
+      // Anyone can create a post, but must be the author
+      allow create: if isOwner(request.resource.data.authorId);
       
-      // Comments
+      // Only the author can delete their post
+      allow delete: if isOwner(resource.data.authorId);
+      
+      // Anyone can like/unlike a post, but can only modify the like fields
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['likeCount', 'likedBy']);
+      
+      // Comments Subcollection
       match /comments/{commentId} {
-        allow read, create: if request.auth != null;
-        allow update, delete: if request.auth.uid == resource.data.authorId;
+        allow read: if request.auth != null;
+        allow create: if isOwner(request.resource.data.authorId);
+        // Add update/delete rules for comments if needed
       }
     }
   }
 }
+
+    
