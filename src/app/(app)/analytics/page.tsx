@@ -253,7 +253,8 @@ const PerformanceDashboard = () => {
 
     const calculatePnl = useCallback((trade: Trade, account: Account) => {
         const riskAmount = account.riskPerTrade || (account.balance * 0.01);
-        return riskAmount * (trade.rr || 0);
+        const rr = trade.rrDetails?.[account.id] ?? trade.rr;
+        return riskAmount * (rr || 0);
     }, []);
 
      const analyticsData = useMemo(() => {
@@ -587,6 +588,7 @@ const PerformanceDashboard = () => {
                         {selectedDayTrades.map(trade => {
                              const currentAccount = selectedAccount ? accounts.find(acc => acc.id === selectedAccount) : null;
                              const pnl = currentAccount ? calculatePnl(trade, currentAccount) : 0;
+                             const rr = currentAccount ? (trade.rrDetails?.[currentAccount.id] ?? trade.rr) : 0;
                             return (
                                 <Card key={trade.id} className="p-4">
                                      <div className="flex justify-between items-start">
@@ -606,7 +608,7 @@ const PerformanceDashboard = () => {
                                              <p className={cn("font-bold", pnl >= 0 ? 'text-green-500' : 'text-red-500')}>
                                                 {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
                                              </p>
-                                            <p className="text-sm text-muted-foreground">{(trade.rr || 0).toFixed(2)}R</p>
+                                            <p className="text-sm text-muted-foreground">{rr.toFixed(2)}R</p>
                                         </div>
                                      </div>
                                      {trade.notes && (
