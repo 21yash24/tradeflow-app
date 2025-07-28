@@ -130,8 +130,11 @@ export default function EconomicNewsPage() {
     const [briefings, setBriefings] = useState<Record<string, MarketBriefing>>({});
     const { toast } = useToast();
 
-    const start = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
-    const end = endOfWeek(currentDate, { weekStartsOn: 1 });
+    const { start, end } = useMemo(() => {
+        const start = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
+        const end = endOfWeek(currentDate, { weekStartsOn: 1 }); // Sunday
+        return { start, end };
+    }, [currentDate]);
 
     useEffect(() => {
         const fetchEvents = async () => {
