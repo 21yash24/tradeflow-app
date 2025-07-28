@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Heart, MessageCircle, Repeat, Loader2, UserPlus, Search, MoreHorizontal, Trash2, Edit, Image as ImageIcon } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db, storage } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, where, doc, deleteDoc, updateDoc, writeBatch, increment, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, where, doc, deleteDoc, updateDoc, runTransaction, increment, getDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -65,12 +65,10 @@ const PostActions = ({ post }: { post: Post }) => {
         const postRef = doc(db, 'posts', post.id);
         const likeRef = doc(db, `posts/${post.id}/likes`, user.uid);
         
-        // Optimistically update UI
         const currentlyLiked = isLiked;
-        const currentLikeCount = likeCount;
-
+        
         setIsLiked(!currentlyLiked);
-        setLikeCount(currentLikeCount + (!currentlyLiked ? 1 : -1));
+        setLikeCount(prev => prev + (!currentlyLiked ? 1 : -1));
 
         try {
             await runTransaction(db, async (transaction) => {
@@ -95,7 +93,7 @@ const PostActions = ({ post }: { post: Post }) => {
             console.error("Error liking post:", error);
             // Revert optimistic update on error
             setIsLiked(currentlyLiked);
-            setLikeCount(currentLikeCount);
+            setLikeCount(prev => prev + (currentlyLiked ? 1 : -1));
             toast({ title: "Error", description: "Could not update like status.", variant: "destructive" });
         }
     };
