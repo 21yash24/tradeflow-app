@@ -136,7 +136,7 @@ export default function JournalPage() {
       setTradeDialogOpen(true);
   }
   
-  const handleOpenEditDialog = (trade: Trade) => {
+  const handleOpenEditDialog = useCallback((trade: Trade) => {
       setViewingTrade(null);
       const tradeWithDate = {
           ...trade,
@@ -145,7 +145,7 @@ export default function JournalPage() {
       }
       setEditingTrade(tradeWithDate as any);
       setTradeDialogOpen(true);
-  }
+  }, []);
 
   const handleTradeSubmit = async (values: AddTradeFormValues) => {
     if (!user) return;
@@ -219,18 +219,24 @@ export default function JournalPage() {
     setEditingTrade(null);
   };
   
+  const handleCloseDetails = useCallback(() => {
+    setViewingTrade(null);
+    setAnalysisResult(null);
+    setIsAnalyzing(false);
+  }, []);
+
   const handleDeleteTrade = useCallback(async (tradeId: string) => {
     if (window.confirm("Are you sure you want to delete this trade? This action cannot be undone.")) {
         try {
             await deleteDoc(doc(db, "trades", tradeId));
             toast({ title: "Trade Deleted", description: "The trade has been removed from your journal."});
-            handleCloseDetails();
+            handleCloseDetails(); // This will close the dialog
         } catch (error) {
             console.error("Error deleting trade:", error);
             toast({ title: "Error", description: "Could not delete trade.", variant: "destructive"});
         }
     }
-  }, [])
+  }, [handleCloseDetails, toast])
 
   const handleAnalyzeTrade = async () => {
     if (!viewingTrade) return;
@@ -253,12 +259,6 @@ export default function JournalPage() {
     }
   }
 
-  const handleCloseDetails = () => {
-    setViewingTrade(null);
-    setAnalysisResult(null);
-    setIsAnalyzing(false);
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -276,7 +276,12 @@ export default function JournalPage() {
         </Button>
       </div>
 
-       <Dialog open={isTradeDialogOpen} onOpenChange={setTradeDialogOpen}>
+       <Dialog open={isTradeDialogOpen} onOpenChange={(isOpen) => {
+           if (!isOpen) {
+               setEditingTrade(null);
+           }
+           setTradeDialogOpen(isOpen);
+       }}>
           <DialogContent className="sm:max-w-xl">
             <DialogHeader>
               <DialogTitle>{editingTrade ? 'Edit Trade' : 'Add New Trade'}</DialogTitle>
@@ -483,3 +488,5 @@ export default function JournalPage() {
     </div>
   );
 }
+
+    
