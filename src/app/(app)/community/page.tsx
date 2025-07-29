@@ -405,25 +405,26 @@ const CreatePost = () => {
         setIsSubmitting(true);
 
         try {
-            let imageUrl: string | undefined = undefined;
-            if (imageFile) {
-                const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${imageFile.name}`);
-                await uploadString(ref(storage, storageRef.fullPath), imagePreview!, 'data_url');
-                imageUrl = await getDownloadURL(storageRef);
-            }
-
-            await addDoc(collection(db, 'posts'), {
+            const postData: any = {
                 authorId: user.uid,
                 authorName: profile.displayName,
                 authorHandle: profile.displayName?.toLowerCase().replace(/\s/g, '_') || 'user',
                 authorAvatar: profile.photoURL,
                 content: newPostContent,
-                imageUrl,
                 createdAt: serverTimestamp(),
                 likeCount: 0,
                 commentCount: 0,
                 likedBy: [],
-            });
+            };
+
+            if (imageFile && imagePreview) {
+                const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${imageFile.name}`);
+                await uploadString(ref(storage, storageRef.fullPath), imagePreview, 'data_url');
+                postData.imageUrl = await getDownloadURL(storageRef);
+            }
+
+            await addDoc(collection(db, 'posts'), postData);
+
             setNewPostContent('');
             setImageFile(null);
             setImagePreview(null);
