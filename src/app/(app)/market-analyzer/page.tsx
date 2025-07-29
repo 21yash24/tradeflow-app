@@ -4,13 +4,16 @@
 import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowRight, Lightbulb, ShieldCheck, Upload, AlertCircle, BrainCircuit } from 'lucide-react';
+import { Loader2, ArrowRight, Lightbulb, ShieldCheck, Upload, AlertCircle, BrainCircuit, CheckCircle, TrendingUp, TrendingDown, MinusCircle, Layers, Target } from 'lucide-react';
 import { analyzeMarket, type MarketAnalysis, type MarketAnalysisInput } from '@/ai/flows/market-analyzer-flow';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 const AiMarketAnalyst = () => {
     const [analysisState, setAnalysisState] = useState<MarketAnalysisInput>({
@@ -98,18 +101,62 @@ const AiMarketAnalyst = () => {
                 </div>
             )
         }
+        
+        const sentimentMap = {
+            Bullish: { icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-500/10' },
+            Bearish: { icon: TrendingDown, color: 'text-red-500', bg: 'bg-red-500/10' },
+            Neutral: { icon: MinusCircle, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
+        };
 
         // Results view
         if (results && currentStep === questions.length + 2) {
+            const SentimentIcon = sentimentMap[results.overallSentiment].icon;
+            const sentimentColor = sentimentMap[results.overallSentiment].color;
+
             return (
                  <Card>
                     <CardHeader>
-                        <CardTitle>Market Analysis</CardTitle>
-                        <CardDescription>Here is a review of your chart from your AI mentor.</CardDescription>
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <CardTitle>Market Analysis Report</CardTitle>
+                                <CardDescription>A review of your chart from your AI mentor.</CardDescription>
+                            </div>
+                            <Badge className={cn("text-base px-4 py-1", sentimentMap[results.overallSentiment].bg, sentimentColor)}>
+                                <SentimentIcon className="mr-2 h-5 w-5"/>
+                                {results.overallSentiment}
+                            </Badge>
+                        </div>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                        
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Card className="p-4">
+                                <h4 className="font-semibold text-sm mb-2 text-primary">Key Support Levels</h4>
+                                <div className="space-y-1">
+                                    {results.keySupportLevels.map((level, i) => <p key={i} className="text-sm text-muted-foreground">{level}</p>)}
+                                </div>
+                            </Card>
+                             <Card className="p-4">
+                                <h4 className="font-semibold text-sm mb-2 text-primary">Key Resistance Levels</h4>
+                                 <div className="space-y-1">
+                                    {results.keyResistanceLevels.map((level, i) => <p key={i} className="text-sm text-muted-foreground">{level}</p>)}
+                                </div>
+                            </Card>
+                        </div>
+                        
+                        {results.identifiedPatterns && results.identifiedPatterns.length > 0 && (
+                             <Card>
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="flex items-center text-lg gap-2"><Layers className="text-primary"/> Identified Patterns</CardTitle>
+                                </CardHeader>
+                                <CardContent className="flex flex-wrap gap-2">
+                                     {results.identifiedPatterns.map((pattern, i) => <Badge key={i} variant="secondary">{pattern}</Badge>)}
+                                </CardContent>
+                            </Card>
+                        )}
+
                         <Card>
-                            <CardHeader>
+                            <CardHeader className="pb-2">
                                 <CardTitle className="flex items-center text-lg gap-2"><Lightbulb className="text-yellow-400"/> Market Insights</CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -117,7 +164,7 @@ const AiMarketAnalyst = () => {
                             </CardContent>
                         </Card>
                          <Card>
-                            <CardHeader>
+                            <CardHeader className="pb-2">
                                 <CardTitle className="flex items-center text-lg gap-2"><BrainCircuit className="text-primary"/> Potential Biases</CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -125,13 +172,30 @@ const AiMarketAnalyst = () => {
                             </CardContent>
                         </Card>
                         <Card>
-                            <CardHeader>
+                            <CardHeader className="pb-2">
                                 <CardTitle className="flex items-center text-lg gap-2"><ShieldCheck className="text-green-500"/> Addressing Your Concerns</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <p className="text-muted-foreground whitespace-pre-wrap">{results.addressingConcerns}</p>
                             </CardContent>
                         </Card>
+                        
+                         <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center text-lg gap-2"><Target className="text-blue-400"/> Actionable Next Steps</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {results.actionableNextSteps.map((step, i) => (
+                                    <div key={i} className="flex items-start gap-3">
+                                        <CheckCircle className="h-5 w-5 text-blue-400 mt-0.5" />
+                                        <p className="text-muted-foreground">{step}</p>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                        
+                        <Separator />
+                        
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>Disclaimer</AlertTitle>
