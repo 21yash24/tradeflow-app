@@ -5,7 +5,7 @@ import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowRight, Lightbulb, ShieldCheck, Upload, AlertCircle, BrainCircuit } from 'lucide-react';
-import { analyzeMarket, type MarketAnalysis } from '@/ai/flows/market-analyzer-flow';
+import type { MarketAnalysis } from '@/ai/flows/market-analyzer-flow';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -60,6 +60,17 @@ const AiMarketAnalyst = () => {
     };
     
     const handleRunAnalysis = async () => {
+        const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_MARKET_ANALYZER_URL;
+
+        if (!n8nWebhookUrl) {
+            toast({
+                title: 'Configuration Error',
+                description: 'The n8n webhook URL is not configured.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
         if (!analysisState.photoDataUri) {
             toast({ title: 'No Image', description: 'Please upload a chart image first.', variant: 'destructive'});
             return;
@@ -67,12 +78,27 @@ const AiMarketAnalyst = () => {
         setIsLoading(true);
         setResults(null);
         try {
-            const result = await analyzeMarket(analysisState);
-            setResults(result);
+            const response = await fetch(n8nWebhookUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(analysisState),
+            });
+
+            if (!response.ok) {
+                throw new Error(`n8n webhook failed with status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            // Assuming n8n returns the same MarketAnalysis structure
+            // You might need to adjust this based on your n8n workflow's output
+            setResults(result); 
             setCurrentStep(questions.length + 2); // Final results step
         } catch (error) {
             console.error("Error running analysis:", error);
-            toast({ title: 'Analysis Failed', description: 'There was an error getting a response from the AI.', variant: 'destructive' });
+            toast({ title: 'Analysis Failed', description: 'There was an error getting a response from n8n.', variant: 'destructive' });
         } finally {
             setIsLoading(false);
         }
@@ -93,8 +119,8 @@ const AiMarketAnalyst = () => {
              return (
                 <div className="flex flex-col items-center justify-center text-center gap-4 p-8 rounded-lg border border-dashed">
                     <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <h3 className="text-xl font-semibold">AI Analysis in Progress</h3>
-                    <p className="text-muted-foreground">Please wait while our AI mentor reviews your chart and answers...</p>
+                    <h3 className="text-xl font-semibold">Analysis in Progress</h3>
+                    <p className="text-muted-foreground">Please wait while the n8n workflow processes your chart...</p>
                 </div>
             )
         }
@@ -104,8 +130,8 @@ const AiMarketAnalyst = () => {
             return (
                  <Card>
                     <CardHeader>
-                        <CardTitle>AI Market Analysis</CardTitle>
-                        <CardDescription>Here is a review of your chart from the AI trading mentor.</CardDescription>
+                        <CardTitle>Market Analysis</CardTitle>
+                        <CardDescription>Here is a review of your chart from your n8n workflow.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <Card>
@@ -212,7 +238,7 @@ const AiMarketAnalyst = () => {
                                     // Final confirmation step
                                     <div>
                                         <h3 className="font-semibold text-lg mb-4">Ready for analysis?</h3>
-                                        <p className="text-muted-foreground mb-4">The AI will now analyze your chart and the answers you've provided.</p>
+                                        <p className="text-muted-foreground mb-4">The n8n workflow will now analyze your chart and the answers you've provided.</p>
                                         <div className="flex justify-end">
                                              <Button onClick={handleRunAnalysis} size="lg">
                                                 <BrainCircuit className="mr-2 h-5 w-5" /> Analyze Now
@@ -277,3 +303,11 @@ export default function MarketAnalyzerPage() {
     );
 }
 
+// Define the type for the analysis results to maintain type safety
+// This should match the JSON structure your n8n workflow returns
+export type MarketAnalysis = {
+  potentialBiases: string;
+  marketInsights: string;
+  addressingConcerns: string;
+  disclaimer: string;
+};
