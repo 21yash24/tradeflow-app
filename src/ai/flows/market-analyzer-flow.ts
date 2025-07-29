@@ -28,11 +28,11 @@ const MarketAnalysisSchema = z.object({
   marketInsights: z.string().describe("Provide an objective analysis of the chart. Identify key support/resistance levels, trend direction, relevant chart patterns, and indicator signals. Do not provide signals, but rather observations."),
   addressingConcerns: z.string().describe("Directly address the user's specific questions or concerns, providing explanations based on the chart data."),
   disclaimer: z.string().default("This AI analysis is for educational purposes only and is not financial advice. Always do your own research and manage risk appropriately."),
-  keySupportLevels: z.array(z.string()).describe("A list of key support price levels identified from the chart."),
-  keyResistanceLevels: z.array(z.string()).describe("A list of key resistance price levels identified from the chart."),
-  identifiedPatterns: z.array(z.string()).describe("A list of any recognizable technical chart patterns (e.g., 'Head and Shoulders', 'Double Top')."),
-  overallSentiment: z.enum(['Bullish', 'Bearish', 'Neutral']).describe("The AI's overall sentiment based on the analysis."),
-  actionableNextSteps: z.array(z.string()).describe("A list of concrete, actionable steps the trader could take next, such as setting alerts or waiting for specific confirmations.")
+  keySupportLevels: z.array(z.string()).describe("A list of key support price levels identified from the chart. This must be an array of strings."),
+  keyResistanceLevels: z.array(z.string()).describe("A list of key resistance price levels identified from the chart. This must be an array of strings."),
+  identifiedPatterns: z.array(z.string()).describe("A list of any recognizable technical chart patterns (e.g., 'Head and Shoulders', 'Double Top'). This must be an array of strings."),
+  overallSentiment: z.enum(['Bullish', 'Bearish', 'Neutral']).describe("The AI's overall sentiment based on the analysis. Must be one of 'Bullish', 'Bearish', or 'Neutral'."),
+  actionableNextSteps: z.array(z.string()).describe("A list of concrete, actionable steps the trader could take next, such as setting alerts or waiting for specific confirmations. This must be an array of strings.")
 });
 export type MarketAnalysis = z.infer<typeof MarketAnalysisSchema>;
 
@@ -56,7 +56,12 @@ Analyze the provided chart screenshot and the user's commentary.
 **Chart:**
 {{media url=photoDataUri}}
 
-Based on all this information, provide a structured analysis. Identify key support and resistance levels as specific price points. Identify any classic chart patterns you see. Determine the overall sentiment from a neutral perspective. Provide a few actionable next steps for the trader to consider.
+Based on all this information, provide a structured analysis. You must return data in the specified JSON format.
+- Identify key support and resistance levels as specific price points. These must be returned in the 'keySupportLevels' and 'keyResistanceLevels' arrays.
+- Identify any classic chart patterns you see (e.g., 'Head and Shoulders'). This must be returned in the 'identifiedPatterns' array.
+- Determine the overall sentiment from a neutral perspective. This must be returned in the 'overallSentiment' field.
+- Provide a few concrete, actionable next steps for the trader to consider. This must be returned in the 'actionableNextSteps' array.
+- Fill out all other fields as requested by the output schema.
 `,
 });
 
@@ -68,6 +73,9 @@ const analyzeMarketFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
-    return output!;
+    if (!output) {
+      throw new Error('The AI model did not return a valid analysis. Please try again.');
+    }
+    return output;
   }
 );

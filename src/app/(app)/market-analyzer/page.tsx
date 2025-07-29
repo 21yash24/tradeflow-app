@@ -75,7 +75,8 @@ const AiMarketAnalyst = () => {
             setCurrentStep(questions.length + 2); // Final results step
         } catch (error) {
             console.error("Error running analysis:", error);
-            toast({ title: 'Analysis Failed', description: 'There was an error getting a response from the AI.', variant: 'destructive' });
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+            toast({ title: 'Analysis Failed', description: errorMessage, variant: 'destructive' });
         } finally {
             setIsLoading(false);
         }
