@@ -11,7 +11,7 @@ import { Flame, CheckCircle2, TrendingUp, Loader2, History, Trash2, Brain, Shiel
 import { format, isToday, isYesterday, differenceInCalendarDays, parseISO, subDays, eachDayOfInterval } from 'date-fns';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, deleteDoc, runTransaction } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { ChecklistItem, UserProfile } from '@/services/user-service';
@@ -93,7 +93,7 @@ const DisciplineTrackerPage = () => {
                 if (!isSubscribed) return;
                 if (docSnap.exists()) {
                     const streakData = docSnap.data();
-                    const lastDate = streakData.lastCompletedDate ? new Date(streakData.lastCompletedDate) : new Date();
+                    const lastDate = streakData.lastCompletedDate ? parseISO(streakData.lastCompletedDate) : new Date(0);
                     const today = new Date();
                     
                     if (differenceInCalendarDays(today, lastDate) > 1) {
@@ -219,39 +219,51 @@ const DisciplineTrackerPage = () => {
         if (!user || !docRef || !streakRef) return;
         
         try {
-            await setDoc(docRef, {
-                userId: user.uid,
-                date: todayStr,
-                checklist: data.checklist,
-                mindsetChecklist: data.mindsetChecklist,
-                notes: data.notes,
-                lastCompletedDate: todayStr,
-            }, { merge: true });
-
-            const streakDoc = await getDoc(streakRef);
-            let currentStreak = 0;
-            if (streakDoc.exists()) {
-                const lastDateStr = streakDoc.data().lastCompletedDate;
-                if(lastDateStr) {
-                    const lastDate = new Date(lastDateStr);
-                    if (isYesterday(lastDate) || isToday(lastDate)) { 
-                         currentStreak = streakDoc.data().streak;
+            await runTransaction(db, async (transaction) => {
+                const streakDoc = await transaction.get(streakRef);
+                
+                let currentStreak = 0;
+                let lastCompletedDateStr: string | null = null;
+    
+                if (streakDoc.exists()) {
+                    const streakData = streakDoc.data();
+                    lastCompletedDateStr = streakData.lastCompletedDate;
+                    
+                    if (lastCompletedDateStr) {
+                        const lastDate = parseISO(lastCompletedDateStr);
+                        if (isYesterday(lastDate) || isToday(lastDate)) {
+                            currentStreak = streakData.streak || 0;
+                        }
                     }
                 }
-            }
-
-            const newStreak = (streakDoc.data()?.lastCompletedDate === todayStr) ? currentStreak : currentStreak + 1;
-
-            await setDoc(streakRef, {
-                streak: newStreak,
-                lastCompletedDate: todayStr
+    
+                // Don't increment streak if already completed today
+                const newStreak = lastCompletedDateStr === todayStr ? currentStreak : currentStreak + 1;
+    
+                // Save today's discipline log
+                transaction.set(docRef, {
+                    userId: user.uid,
+                    date: todayStr,
+                    checklist: data.checklist,
+                    mindsetChecklist: data.mindsetChecklist,
+                    notes: data.notes,
+                    lastCompletedDate: todayStr,
+                }, { merge: true });
+    
+                // Update the streak document
+                transaction.set(streakRef, {
+                    streak: newStreak,
+                    lastCompletedDate: todayStr,
+                    userId: user.uid, // for potential queries
+                });
+    
+                // Update local state after transaction
+                setData(prev => ({ ...prev, streak: newStreak, lastCompletedDate: todayStr }));
+                toast({ title: 'Day Complete!', description: `Great work! Your streak is now ${newStreak}.` });
             });
-
-            setData(prev => ({ ...prev, streak: newStreak, lastCompletedDate: todayStr }));
-
-            toast({ title: 'Day Complete!', description: `Great work! Your streak is now ${newStreak}.` });
+    
         } catch (error) {
-            console.error(error);
+            console.error("Error completing day:", error);
             toast({ title: 'Error', description: 'Could not complete the day.', variant: 'destructive' });
         }
     };
