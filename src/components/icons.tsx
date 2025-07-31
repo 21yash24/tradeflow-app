@@ -12,7 +12,7 @@ export const TradeFlowLogo = (props: SVGProps<SVGSVGElement>) => (
         <defs>
             <linearGradient id="tradeflow-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 1 }} />
-                <stop offset="100%" style={{ stopColor: '#0A4A40', stopOpacity: 1 }} />
+                <stop offset="100%" style={{ stopColor: 'hsl(169, 85%, 26%)', stopOpacity: 1 }} />
             </linearGradient>
         </defs>
         <path
@@ -27,6 +27,6 @@ export const TradeFlowLogo = (props: SVGProps<SVGSVGElement>) => (
             strokeLinecap="round"
             strokeLinejoin="round"
         />
-        <circle cx="215" cy="85" r="10" fill="#FFFFFF" stroke="none" />
+        <circle cx="105" cy="117" r="10" fill="#FFFFFF" stroke="hsl(var(--primary))" strokeWidth="4" />
     </svg>
 );
