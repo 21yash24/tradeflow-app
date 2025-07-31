@@ -4,24 +4,29 @@ import type { SVGProps } from "react";
 export const TradeFlowLogo = (props: SVGProps<SVGSVGElement>) => (
     <svg
         xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        viewBox="0 0 256 256"
+        width="256"
+        height="256"
         {...props}
     >
-        <circle cx="12" cy="12" r="10" fill="hsl(var(--primary))" stroke="none" />
+        <defs>
+            <linearGradient id="tradeflow-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 1 }} />
+                <stop offset="100%" style={{ stopColor: '#0A4A40', stopOpacity: 1 }} />
+            </linearGradient>
+        </defs>
         <path
-            d="M9 16V8h8"
-            stroke="hsl(var(--primary-foreground))"
-            strokeWidth="2.5"
+            d="M39.6,256h176.8c21.8,0,39.6-17.8,39.6-39.6V39.6C256,17.8,238.2,0,216.4,0H39.6C17.8,0,0,17.8,0,39.6v176.8 C0,238.2,17.8,256,39.6,256z"
+            fill="url(#tradeflow-gradient)"
         />
         <path
-            d="M9 12h5"
-            stroke="hsl(var(--primary-foreground))"
-            strokeWidth="2.5"
+            d="M59,165l46-48 52,32 58-64"
+            fill="none"
+            stroke="#FFFFFF"
+            strokeWidth="12"
+            strokeLinecap="round"
+            strokeLinejoin="round"
         />
+        <circle cx="215" cy="85" r="10" fill="#FFFFFF" stroke="none" />
     </svg>
 );
