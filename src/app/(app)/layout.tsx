@@ -124,6 +124,7 @@ function DesktopSidebar() {
            <div className="flex items-center justify-between mb-8 px-2">
                <div className="flex items-center gap-3">
                     <TradeFlowLogo className="h-8 w-auto text-primary" />
+                    <span className="font-headline font-bold text-xl">TradeFlow</span>
                </div>
                <UserProfileDropdown />
            </div>
@@ -255,6 +256,7 @@ export default function AppLayout({
              <div className="lg:hidden flex justify-between items-center mb-4">
                  <Link href="/" className="flex items-center gap-2">
                     <TradeFlowLogo className="h-7 w-auto text-primary" />
+                    <span className="font-headline font-bold text-lg">TradeFlow</span>
                  </Link>
                  <UserProfileDropdown />
              </div>
