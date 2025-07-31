@@ -20,9 +20,9 @@ service cloud.firestore {
       // Only the owner can create or update their own profile
       allow create, update: if isOwner(userId);
       
-      // Rules for subcollections of a user (e.g., following/followers)
+      // Rules for subcollections of a user
       match /{subcollection}/{docId} {
-        // Only the owner of the main profile can manage their own subcollections
+        // Only the owner can manage their own subcollections (e.g., following)
         allow read, write: if isOwner(userId);
       }
     }
@@ -59,14 +59,17 @@ service cloud.firestore {
       }
     }
 
-    // Rules for discipline and streaks collections, only user can access their own
-    match /(discipline|streaks)/{docId} {
-      allow read, write: if isAuthenticated() && isOwner(docId.split('_')[0]);
+    // Rules for the 'trades' collection
+    match /trades/{tradeId} {
+        // User can only read, update, or delete their own trades
+        allow read, update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+        // User can only create trades for themselves
+        allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
     }
-
-    // Default rules for any other top-level collection (e.g., trades, accounts)
+    
+    // Rules for other collections where userId is present
     match /{collection}/{docId} {
-    	// By default, require the document to have a `userId` field matching the user
+    	// By default, require ownership for all other collections
       allow read, write: if isAuthenticated() && isOwner(resource.data.userId);
     }
   }
