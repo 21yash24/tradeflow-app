@@ -1,3 +1,4 @@
+
 import type { SVGProps } from "react";
 
 export const TradeFlowLogo = (props: SVGProps<SVGSVGElement>) => (
@@ -11,8 +12,22 @@ export const TradeFlowLogo = (props: SVGProps<SVGSVGElement>) => (
         strokeLinejoin="round"
         {...props}
     >
-        <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="hsl(var(--primary))" stroke="none" />
-        <path d="M7 13.151C8.667 11.485 10.333 14.151 12 13.151S15.333 10.485 17 12.151" stroke="hsl(var(--primary-foreground))" strokeWidth="2" />
-        <path d="M7 10.151C8.667 8.485 10.333 11.151 12 10.151S15.333 7.485 17 9.151" stroke="hsl(var(--primary-foreground))" strokeWidth="2" />
+        <circle cx="12" cy="12" r="10" fill="hsl(var(--primary))" stroke="none" />
+        <path
+            d="M9 16V8h8"
+            stroke="hsl(var(--primary-foreground))"
+            strokeWidth="2"
+        />
+        <path
+            d="M9 12h5"
+            stroke="hsl(var(--primary-foreground))"
+            strokeWidth="2"
+        />
+        <path
+            d="M6 14.5l3-3 2 2 4-4"
+            stroke="hsl(var(--background))"
+            strokeWidth="1.5"
+            fill="none"
+        />
     </svg>
 );
