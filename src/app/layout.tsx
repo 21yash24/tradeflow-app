@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: 'The ultimate trading journal and analysis tool.',
   manifest: '/manifest.json',
   icons: {
-    apple: "https://placehold.co/192x192.png"
+    apple: "/icon-192x192.png"
   },
 };
 
