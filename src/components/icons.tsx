@@ -16,18 +16,12 @@ export const TradeFlowLogo = (props: SVGProps<SVGSVGElement>) => (
         <path
             d="M9 16V8h8"
             stroke="hsl(var(--primary-foreground))"
-            strokeWidth="2"
+            strokeWidth="2.5"
         />
         <path
             d="M9 12h5"
             stroke="hsl(var(--primary-foreground))"
-            strokeWidth="2"
-        />
-        <path
-            d="M6 14.5l3-3 2 2 4-4"
-            stroke="hsl(var(--background))"
-            strokeWidth="1.5"
-            fill="none"
+            strokeWidth="2.5"
         />
     </svg>
 );
