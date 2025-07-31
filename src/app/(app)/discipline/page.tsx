@@ -11,7 +11,7 @@ import { Flame, CheckCircle2, TrendingUp, Loader2, History, Trash2, Brain, Shiel
 import { format, isToday, isYesterday, differenceInCalendarDays, parseISO, subDays, eachDayOfInterval } from 'date-fns';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, deleteDoc, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, deleteDoc, runTransaction, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { ChecklistItem, UserProfile } from '@/services/user-service';
@@ -201,17 +201,21 @@ const DisciplineTrackerPage = () => {
     const handleSaveChanges = async () => {
         if (!docRef || !user) return;
         try {
-            await setDoc(docRef, {
-                userId: user.uid,
-                date: todayStr,
-                checklist: data.checklist,
-                mindsetChecklist: data.mindsetChecklist,
-                notes: data.notes
-            }, { merge: true });
+            await runTransaction(db, async (transaction) => {
+                // The transaction will automatically handle creating the doc if it doesn't exist
+                // or updating it if it does. This approach is more robust than setDoc with merge.
+                transaction.set(docRef, {
+                    userId: user.uid,
+                    date: todayStr,
+                    checklist: data.checklist || {},
+                    mindsetChecklist: data.mindsetChecklist || {},
+                    notes: data.notes || ''
+                }, { merge: true });
+            });
             toast({ title: 'Progress Saved', description: 'Your checklist and notes have been saved for today.' });
         } catch (error) {
-            console.error(error);
-            toast({ title: 'Error', description: 'Could not save your progress.', variant: 'destructive' });
+            console.error("Error saving changes:", error);
+            toast({ title: 'Error', description: 'Could not save your progress. Please check permissions.', variant: 'destructive' });
         }
     }
 
@@ -510,3 +514,5 @@ const DisciplineTrackerPage = () => {
 }
 
 export default DisciplineTrackerPage;
+
+    
