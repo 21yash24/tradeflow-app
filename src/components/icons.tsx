@@ -11,8 +11,8 @@ export const TradeFlowLogo = (props: SVGProps<SVGSVGElement>) => (
         strokeLinejoin="round"
         {...props}
     >
-        <path d="M7 12l3-3 3 3 4-4" />
-        <path d="M7 17l3-3 3 3 4-4" />
-        <rect x="3" y="3" width="18" height="18" rx="2" />
+       <rect width="24" height="24" rx="4" fill="#23273A"/>
+       <path d="M5 10.5C8 8 10 13 12 10.5S16 8 19 10.5" stroke="#16A085" strokeWidth="2.5" />
+       <path d="M5 15.5C8 13 10 18 12 15.5S16 13 19 15.5" stroke="#16A085" strokeWidth="2.5" />
     </svg>
 );
