@@ -123,10 +123,7 @@ function DesktopSidebar() {
         <aside className="hidden lg:flex flex-col w-64 bg-card p-4 rounded-r-xl shadow-lg fixed h-full">
            <div className="flex items-center justify-between mb-8 px-2">
                <div className="flex items-center gap-3">
-                    <TradeFlowLogo className="size-8 text-primary" />
-                    <h1 className="text-xl font-bold font-headline text-foreground">
-                        TradeFlow
-                    </h1>
+                    <TradeFlowLogo className="h-8 w-auto text-primary" />
                </div>
                <UserProfileDropdown />
            </div>
@@ -257,10 +254,7 @@ export default function AppLayout({
         <main className="flex-1 lg:ml-64 p-4 md:p-6 lg:p-8 pb-20 lg:pb-8 overflow-auto">
              <div className="lg:hidden flex justify-between items-center mb-4">
                  <Link href="/" className="flex items-center gap-2">
-                    <TradeFlowLogo className="size-7 text-primary" />
-                     <h1 className="text-lg font-bold font-headline text-foreground">
-                        TradeFlow
-                    </h1>
+                    <TradeFlowLogo className="h-7 w-auto text-primary" />
                  </Link>
                  <UserProfileDropdown />
              </div>
