@@ -92,7 +92,8 @@ export default function JournalPage() {
   const [user] = useAuthState(auth);
   const { toast } = useToast();
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [accounts, setAccounts] = useState<Record<string, Account>>({});
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountsMap, setAccountsMap] = useState<Record<string, Account>>({});
   const [isTradeDialogOpen, setTradeDialogOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
@@ -106,11 +107,15 @@ export default function JournalPage() {
       // Fetch user's accounts
       const accountsQuery = query(collection(db, "accounts"), where("userId", "==", user.uid));
       const unsubAccounts = onSnapshot(accountsQuery, (snapshot) => {
-        const accountsData: Record<string, Account> = {};
+        const accountsListData: Account[] = [];
+        const accountsMapData: Record<string, Account> = {};
         snapshot.forEach(doc => {
-            accountsData[doc.id] = { ...doc.data(), id: doc.id } as Account;
+            const account = { ...doc.data(), id: doc.id } as Account;
+            accountsListData.push(account);
+            accountsMapData[doc.id] = account;
         });
-        setAccounts(accountsData);
+        setAccounts(accountsListData);
+        setAccountsMap(accountsMapData);
       });
 
       // Fetch user's trades
@@ -168,7 +173,7 @@ export default function JournalPage() {
     if (editingTrade) {
         const tradeRef = doc(db, "trades", editingTrade.id);
         try {
-            await updateDoc(tradeRef, dataToSave);
+            await updateDoc(tradeRef, dataToSave as any);
             toast({ title: "Trade Updated", description: "Your changes have been saved." });
         } catch (error) {
             console.error("Error updating trade:", error);
@@ -235,7 +240,7 @@ export default function JournalPage() {
     setAnalysisResult(null);
 
     const averagePnl = (viewingTrade.accountIds || []).reduce((sum, accId) => {
-        const account = accounts[accId];
+        const account = accountsMap[accId];
         const rr = viewingTrade.rrDetails?.[accId] ?? viewingTrade.rr;
         if (account) {
             const riskAmount = account.riskPerTrade || (account.balance * 0.01);
@@ -273,7 +278,7 @@ export default function JournalPage() {
 
   const renderTradeRow = (trade: Trade, isDeletedView = false) => {
     const hasAccounts = trade.accountIds && trade.accountIds.length > 0;
-    const firstAccountName = hasAccounts && accounts[trade.accountIds[0]] ? accounts[trade.accountIds[0]].name : 'N/A';
+    const firstAccountName = hasAccounts && accountsMap[trade.accountIds[0]] ? accountsMap[trade.accountIds[0]].name : 'N/A';
     const remainingAccounts = hasAccounts ? trade.accountIds.length - 1 : 0;
     
     let avgRr = 0;
@@ -371,7 +376,7 @@ export default function JournalPage() {
             <AddTradeFlow 
                 onSubmit={handleTradeSubmit} 
                 initialData={editingTrade || undefined}
-                accounts={Object.values(accounts)}
+                accounts={accounts}
                 onDone={() => {
                     setTradeDialogOpen(false);
                     setEditingTrade(null);
@@ -540,7 +545,7 @@ export default function JournalPage() {
                         <h4 className="font-semibold">Accounts & P/L</h4>
                         <div className="space-y-2 rounded-md border p-3">
                             {(viewingTrade.accountIds || []).map(accId => {
-                                const account = accounts[accId];
+                                const account = accountsMap[accId];
                                 if (!account) return null;
                                 const rr = viewingTrade.rrDetails?.[accId] ?? viewingTrade.rr;
                                 const riskAmount = account.riskPerTrade || (account.balance * 0.01);

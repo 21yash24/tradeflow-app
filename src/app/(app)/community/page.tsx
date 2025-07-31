@@ -405,29 +405,34 @@ const CreatePost = () => {
         setIsSubmitting(true);
 
         try {
+            let imageUrl: string | undefined = undefined;
+            if (imageFile && imagePreview) {
+                const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${imageFile.name}`);
+                await uploadString(storageRef, imagePreview, 'data_url');
+                imageUrl = await getDownloadURL(storageRef);
+            }
+
             const postData: any = {
                 authorId: user.uid,
                 authorName: profile.displayName,
                 authorHandle: profile.displayName?.toLowerCase().replace(/\s/g, '_') || 'user',
                 authorAvatar: profile.photoURL,
                 content: newPostContent,
+                imageUrl: imageUrl,
                 createdAt: serverTimestamp(),
                 likeCount: 0,
                 commentCount: 0,
                 likedBy: [],
             };
 
-            if (imageFile && imagePreview) {
-                const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${imageFile.name}`);
-                await uploadString(ref(storage, storageRef.fullPath), imagePreview, 'data_url');
-                postData.imageUrl = await getDownloadURL(storageRef);
-            }
-
             await addDoc(collection(db, 'posts'), postData);
 
             setNewPostContent('');
             setImageFile(null);
             setImagePreview(null);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
             toast({ title: "Post published!", description: "Your thoughts have been shared with the community." });
         } catch (error) {
             console.error("Error creating post:", error);
@@ -463,6 +468,9 @@ const CreatePost = () => {
                             onClick={() => {
                                 setImageFile(null);
                                 setImagePreview(null);
+                                if (fileInputRef.current) {
+                                    fileInputRef.current.value = '';
+                                }
                             }}
                         >
                             <Trash2 className="h-4 w-4" />
@@ -552,5 +560,3 @@ const CommunityPage = () => {
 };
 
 export default CommunityPage;
-
-    

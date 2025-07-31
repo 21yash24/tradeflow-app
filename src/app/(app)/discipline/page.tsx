@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -101,6 +101,8 @@ const DisciplineTrackerPage = () => {
                     } else {
                         setData(prev => ({...prev, streak: streakData.streak || 0}));
                     }
+                } else {
+                    setData(prev => ({...prev, streak: 0}));
                 }
              });
 
@@ -158,11 +160,11 @@ const DisciplineTrackerPage = () => {
         });
 
         return last7Days.map(day => {
-            const dayStr = format(day, 'yyyy-MM-dd');
-            const record = history.find(h => h.date === dayStr);
+            const dayStr = format(day, 'EEE');
+            const record = history.find(h => h.date === format(day, 'yyyy-MM-dd'));
             const completed = record ? Object.values(record.checklist).filter(Boolean).length : 0;
             return {
-                name: format(day, 'EEE'),
+                name: dayStr,
                 completed,
             };
         });
@@ -202,15 +204,20 @@ const DisciplineTrackerPage = () => {
         if (!docRef || !user) return;
         try {
             await runTransaction(db, async (transaction) => {
-                // The transaction will automatically handle creating the doc if it doesn't exist
-                // or updating it if it does. This approach is more robust than setDoc with merge.
-                transaction.set(docRef, {
+                const docSnap = await transaction.get(docRef);
+                const dataToSave = {
                     userId: user.uid,
                     date: todayStr,
                     checklist: data.checklist || {},
                     mindsetChecklist: data.mindsetChecklist || {},
                     notes: data.notes || ''
-                }, { merge: true });
+                };
+
+                if (docSnap.exists()) {
+                    transaction.update(docRef, dataToSave);
+                } else {
+                    transaction.set(docRef, dataToSave);
+                }
             });
             toast({ title: 'Progress Saved', description: 'Your checklist and notes have been saved for today.' });
         } catch (error) {
@@ -422,7 +429,7 @@ const DisciplineTrackerPage = () => {
                     <Textarea 
                         placeholder="e.g., 'I held onto a losing trade for too long hoping it would turn around. I need to trust my stop-loss more.'"
                         className="min-h-[120px]"
-                        value={data.notes}
+                        value={data.notes || ''}
                         onChange={handleNotesChange}
                         disabled={isCompletedForToday}
                     />
@@ -514,5 +521,3 @@ const DisciplineTrackerPage = () => {
 }
 
 export default DisciplineTrackerPage;
-
-    
