@@ -1,10 +1,11 @@
 
 'use server';
 
-import { db } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase-admin';
 import type { Trade } from '@/components/add-trade-form';
 
 export async function getUserTrades(userId: string): Promise<Trade[]> {
+  const db = getDb();
   try {
     const tradesSnapshot = await db.collection('trades')
         .where('userId', '==', userId)
