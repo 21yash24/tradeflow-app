@@ -54,7 +54,6 @@ const thinkerTool = ai.defineFlow(
       - For anything else related to trading psychology, discipline, or general questions, provide a helpful, conversational answer directly.
       - If you use a tool, present the output of that tool. Your main answer should just be a short summary or acknowledgment. For example "Here is the market analysis you requested:".
       - If the user provides an image but does not explicitly ask to analyze it, you should ask them if they want you to analyze it.
-      - If more information is needed to use a tool (e.g., the user says "review my trade" but gives no details), ask clarifying questions to get the required information for the tool.
       `,
       input: { photoDataUri: input.photoDataUri },
       tools: [marketAnalysisTool, tradeAnalysisTool],
@@ -66,3 +65,4 @@ const thinkerTool = ai.defineFlow(
     return llmResponse.output() || { answer: "I'm sorry, I couldn't process that request.", marketAnalysis: null, tradeAnalysis: null };
   }
 );
+
