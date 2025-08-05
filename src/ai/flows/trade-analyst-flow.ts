@@ -29,11 +29,6 @@ const TradeAnalysisSchema = z.object({
 });
 export type TradeAnalysis = z.infer<typeof TradeAnalysisSchema>;
 
-export async function analyzeTrade(input: TradeAnalysisInput): Promise<TradeAnalysis> {
-    return analyzeTradeFlow(input);
-}
-
-
 const prompt = ai.definePrompt({
     name: 'tradeAnalystPrompt',
     input: { schema: TradeAnalysisInputSchema },
@@ -65,5 +60,18 @@ const analyzeTradeFlow = ai.defineFlow(
     async (input) => {
         const { output } = await prompt(input);
         return output!;
+    }
+);
+
+
+export const tradeAnalysisTool = ai.defineTool(
+    {
+        name: 'tradeAnalysisTool',
+        description: 'Reviews a user\'s past trade based on their notes, P/L, and mental state to provide psychological and performance feedback.',
+        inputSchema: TradeAnalysisInputSchema,
+        outputSchema: TradeAnalysisSchema,
+    },
+    async (input) => {
+        return await analyzeTradeFlow(input);
     }
 );

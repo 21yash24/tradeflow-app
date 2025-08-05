@@ -17,9 +17,9 @@ const MarketAnalysisInputSchema = z.object({
     .describe(
       "A screenshot of a trading chart, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
-  userBias: z.string().describe("The user's initial bias (e.g., Bullish, Bearish, Neutral)."),
-  timeframe: z.string().describe("The trading timeframe (e.g., Intraday, Swing, Position)."),
-  concerns: z.string().describe("The user's specific questions or concerns about the chart setup."),
+  userBias: z.string().optional().describe("The user's initial bias (e.g., Bullish, Bearish, Neutral). If not provided, assume Neutral."),
+  timeframe: z.string().optional().describe("The trading timeframe (e.g., Intraday, Swing, Position). If not provided, try to infer from the chart."),
+  concerns: z.string().optional().describe("The user's specific questions or concerns about the chart setup. If not provided, perform a general analysis."),
 });
 export type MarketAnalysisInput = z.infer<typeof MarketAnalysisInputSchema>;
 
@@ -35,10 +35,6 @@ const MarketAnalysisSchema = z.object({
   actionableNextSteps: z.array(z.string()).describe("A list of concrete, actionable steps the trader could take next, such as setting alerts or waiting for specific confirmations. This must be an array of strings.")
 });
 export type MarketAnalysis = z.infer<typeof MarketAnalysisSchema>;
-
-export async function analyzeMarket(input: MarketAnalysisInput): Promise<MarketAnalysis> {
-  return analyzeMarketFlow(input);
-}
 
 const prompt = ai.definePrompt({
   name: 'marketAnalystPrompt',
@@ -78,4 +74,17 @@ const analyzeMarketFlow = ai.defineFlow(
     }
     return output;
   }
+);
+
+
+export const marketAnalysisTool = ai.defineTool(
+    {
+        name: 'marketAnalysisTool',
+        description: 'Analyzes a trading chart image to provide market insights, identify patterns, and address user concerns.',
+        inputSchema: MarketAnalysisInputSchema,
+        outputSchema: MarketAnalysisSchema,
+    },
+    async (input) => {
+        return await analyzeMarketFlow(input);
+    }
 );
