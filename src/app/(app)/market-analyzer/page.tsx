@@ -49,7 +49,7 @@ const AiChatbotAnalyst = () => {
     }, [messages]);
 
     const addMessage = (sender: 'user' | 'bot', content: React.ReactNode, options?: Message['options'], isTyping = false) => {
-        const newMessage = { id: Date.now().toString(), sender, content, options, isTyping };
+        const newMessage = { id: `${Date.now()}-${Math.random()}`, sender, content, options, isTyping };
         setMessages(prev => {
             const lastMessage = prev[prev.length - 1];
             if (lastMessage?.isTyping) {
