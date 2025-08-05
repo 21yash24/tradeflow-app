@@ -62,7 +62,6 @@ const thinkerTool = ai.defineFlow(
       }
     });
 
-    return llmResponse.output() || { answer: "I'm sorry, I couldn't process that request.", marketAnalysis: null, tradeAnalysis: null };
+    return llmResponse.output || { answer: "I'm sorry, I couldn't process that request.", marketAnalysis: null, tradeAnalysis: null };
   }
 );
-
