@@ -11,6 +11,8 @@ if (!admin.apps.length) {
   } catch (error: any) {
     // In a real app, you might want to log this error to a monitoring service
     console.error('Firebase Admin initialization error', error);
+    // You might want to throw the error to prevent the app from starting
+    // in a broken state, depending on your error handling strategy.
   }
 }
 
