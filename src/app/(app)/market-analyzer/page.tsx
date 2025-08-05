@@ -30,7 +30,7 @@ const AiChatbotAnalyst = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [conversationState, setConversationState] = useState<'initial' | 'market_analysis' | 'trade_review' | 'discipline' | 'finished'>('initial');
+    const [conversationState, setConversationState] = useState<'initial' | 'market_analysis' | 'market_analysis_bias' | 'market_analysis_timeframe' | 'market_analysis_concerns' | 'trade_review' | 'trade_review_pair' | 'trade_review_type' | 'trade_review_pnl' | 'trade_review_notes' | 'trade_review_mental_state' | 'discipline' | 'finished'>('initial');
     const [analysisData, setAnalysisData] = useState<Partial<MarketAnalysisInput & TradeAnalysisInput>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -38,16 +38,7 @@ const AiChatbotAnalyst = () => {
 
     useEffect(() => {
         // Initial message from the bot
-        setMessages([{
-            id: 'init',
-            sender: 'bot',
-            content: 'What would you like to analyze today?',
-            options: [
-                { label: 'Market Analysis', icon: TrendingUp, value: 'market_analysis' },
-                { label: 'Trade Review', icon: BrainCircuit, value: 'trade_review' },
-                { label: 'Trading Discipline', icon: ShieldCheck, value: 'discipline' },
-            ]
-        }]);
+        startNewAnalysis();
     }, []);
 
     useEffect(() => {
@@ -77,7 +68,7 @@ const AiChatbotAnalyst = () => {
         setTimeout(() => processBotResponse(value), 1000);
     }
 
-    const processBotResponse = (state: string, data?: Partial<MarketAnalysisInput>) => {
+    const processBotResponse = (state: string, data?: Partial<MarketAnalysisInput & TradeAnalysisInput>) => {
         setIsLoading(false);
         const newData = { ...analysisData, ...data };
         setAnalysisData(newData);
@@ -86,6 +77,7 @@ const AiChatbotAnalyst = () => {
             addMessage('bot', 'Great! Please upload a screenshot of the chart you want to analyze.');
         } else if (state === 'trade_review') {
             addMessage('bot', `Let's review a trade. What was the currency pair?`);
+            setConversationState('trade_review_pair');
         } else if (state === 'discipline') {
             addMessage('bot', `Let's talk about discipline. In a few words, how have you been feeling about your trading lately? (e.g., "anxious", "over-confident", "sticking to the plan")`);
         } else if (state === 'market_analysis_bias') {
@@ -102,8 +94,6 @@ const AiChatbotAnalyst = () => {
             ]);
         } else if (state === 'market_analysis_concerns') {
             addMessage('bot', `Finally, what are your specific concerns or questions about this setup?`);
-        } else if (state === 'market_analysis_start') {
-            runMarketAnalysis(newData as MarketAnalysisInput);
         }
     };
     
@@ -115,6 +105,7 @@ const AiChatbotAnalyst = () => {
                 const photoDataUri = reader.result as string;
                 addMessage('user', <Image src={photoDataUri} alt="chart" width={200} height={150} className="rounded-md" />);
                 setIsLoading(true);
+                setConversationState('market_analysis_bias');
                 setTimeout(() => processBotResponse('market_analysis_bias', { photoDataUri }), 1000);
             };
             reader.readAsDataURL(file);
@@ -127,35 +118,38 @@ const AiChatbotAnalyst = () => {
 
         addMessage('user', input);
         const currentData = { ...analysisData };
+        const textInput = input;
+        setInput('');
 
         if(conversationState === 'market_analysis_concerns') {
-            currentData.concerns = input;
-            setInput('');
+            currentData.concerns = textInput;
             setIsLoading(true);
             setTimeout(() => runMarketAnalysis(currentData as MarketAnalysisInput), 1000);
-        } else if (conversationState === 'trade_review') {
-            currentData.pair = input;
-            setInput('');
-            addMessage('bot', `Got it: ${input}. Was it a buy or sell?`, [
+        } else if (conversationState === 'trade_review_pair') {
+            currentData.pair = textInput;
+            addMessage('bot', `Got it: ${textInput}. Was it a buy or sell?`, [
                 { label: 'Buy', icon: TrendingUp, value: 'buy' },
                 { label: 'Sell', icon: TrendingDown, value: 'sell' },
             ]);
-            setConversationState('trade_review_type' as any);
+            setConversationState('trade_review_type');
+            setAnalysisData(currentData);
         } else if (conversationState === 'trade_review_pnl') {
-            currentData.pnl = parseFloat(input);
-            setInput('');
+            currentData.pnl = parseFloat(textInput);
             addMessage('bot', `What were your notes or thoughts on this trade?`);
-            setConversationState('trade_review_notes' as any);
+            setConversationState('trade_review_notes');
+            setAnalysisData(currentData);
         } else if (conversationState === 'trade_review_notes') {
-            currentData.notes = input;
-            setInput('');
+            currentData.notes = textInput;
             addMessage('bot', `And what was your mental state during the trade?`);
-            setConversationState('trade_review_mental_state' as any);
+            setConversationState('trade_review_mental_state');
+            setAnalysisData(currentData);
         } else if (conversationState === 'trade_review_mental_state') {
-             currentData.mentalState = input;
-             setInput('');
+             currentData.mentalState = textInput;
              setIsLoading(true);
              setTimeout(() => runTradeAnalysis(currentData as TradeAnalysisInput), 1000);
+        } else if (conversationState === 'discipline') {
+            addMessage('bot', `Thanks for sharing. It's common to feel that way. One thing that helps is to focus on your process, not the outcome. Here's a thought: "Am I following my plan, regardless of the last trade's result?"`);
+            setConversationState('finished');
         }
     };
     
@@ -166,15 +160,18 @@ const AiChatbotAnalyst = () => {
         if (conversationState === 'market_analysis_bias') {
              currentData.userBias = value;
              setIsLoading(true);
+             setConversationState('market_analysis_timeframe');
              setTimeout(() => processBotResponse('market_analysis_timeframe', currentData), 1000);
         } else if (conversationState === 'market_analysis_timeframe') {
             currentData.timeframe = value;
             setIsLoading(true);
+            setConversationState('market_analysis_concerns');
             setTimeout(() => processBotResponse('market_analysis_concerns', currentData), 1000);
         } else if (conversationState === 'trade_review_type') {
             (currentData as TradeAnalysisInput).type = value as 'buy' | 'sell';
             addMessage('bot', `What was the final P/L in USD? (e.g., 150 or -50)`);
-            setConversationState('trade_review_pnl' as any);
+            setConversationState('trade_review_pnl');
+            setAnalysisData(currentData);
         }
     }
 
@@ -182,11 +179,15 @@ const AiChatbotAnalyst = () => {
     const runMarketAnalysis = async (finalData: MarketAnalysisInput) => {
         addMessage('bot', '', undefined, true);
         try {
+            if (!process.env.GEMINI_API_KEY) {
+                throw new Error("Gemini API key is not configured.");
+            }
             const result = await analyzeMarket(finalData);
             addMessage('bot', <MarketAnalysisResult analysis={result} />);
         } catch (error) {
-            toast({ title: 'Analysis Failed', description: 'Could not analyze the market data.', variant: 'destructive'});
-            addMessage('bot', 'Sorry, I ran into an error. Please try again.');
+            console.error(error);
+            toast({ title: 'Analysis Failed', description: 'Could not analyze the market data. Please ensure your Gemini API key is configured correctly in your environment variables.', variant: 'destructive'});
+            addMessage('bot', 'Sorry, I ran into an error. Please check your configuration and try again.');
         } finally {
             setIsLoading(false);
             setConversationState('finished');
@@ -196,11 +197,15 @@ const AiChatbotAnalyst = () => {
     const runTradeAnalysis = async (finalData: TradeAnalysisInput) => {
          addMessage('bot', '', undefined, true);
         try {
+            if (!process.env.GEMINI_API_KEY) {
+                throw new Error("Gemini API key is not configured.");
+            }
             const result = await analyzeTrade(finalData);
             addMessage('bot', <TradeAnalysisResult analysis={result} />);
         } catch (error) {
-            toast({ title: 'Analysis Failed', description: 'Could not analyze the trade data.', variant: 'destructive'});
-            addMessage('bot', 'Sorry, I ran into an error. Please try again.');
+            console.error(error);
+            toast({ title: 'Analysis Failed', description: 'Could not analyze the trade data. Please ensure your Gemini API key is configured correctly.', variant: 'destructive'});
+            addMessage('bot', 'Sorry, I ran into an error. Please check your configuration and try again.');
         } finally {
             setIsLoading(false);
             setConversationState('finished');
@@ -210,22 +215,20 @@ const AiChatbotAnalyst = () => {
     const startNewAnalysis = () => {
         setMessages([]);
         setAnalysisData({});
+        setInput('');
         setConversationState('initial');
         setTimeout(() => {
-            setMessages([{
-                id: 'init',
-                sender: 'bot',
-                content: 'What would you like to analyze today?',
-                options: [
-                    { label: 'Market Analysis', icon: TrendingUp, value: 'market_analysis' },
-                    { label: 'Trade Review', icon: BrainCircuit, value: 'trade_review' },
-                    { label: 'Trading Discipline', icon: ShieldCheck, value: 'discipline' },
-                ]
-            }]);
+            addMessage('bot', 'What would you like to analyze today?',
+            [
+                { label: 'Market Analysis', icon: TrendingUp, value: 'market_analysis' },
+                { label: 'Trade Review', icon: BrainCircuit, value: 'trade_review' },
+                { label: 'Trading Discipline', icon: ShieldCheck, value: 'discipline' },
+            ]
+        );
         }, 100);
     }
     
-    const isInputDisabled = conversationState === 'initial' || conversationState === 'finished' || isLoading || conversationState === 'market_analysis' || conversationState === 'market_analysis_bias' || conversationState === 'market_analysis_timeframe';
+    const isInputDisabled = !['market_analysis_concerns', 'trade_review_pair', 'trade_review_pnl', 'trade_review_notes', 'trade_review_mental_state', 'discipline'].includes(conversationState) || isLoading;
 
 
     return (
@@ -260,7 +263,7 @@ const AiChatbotAnalyst = () => {
             
             <div className="p-4 border-t">
                  {/* Quick Reply Options */}
-                 {messages[messages.length-1]?.options && (
+                 {messages[messages.length - 1]?.options && !isLoading && (
                     <div className="flex flex-wrap gap-2 mb-2">
                         {messages[messages.length-1]?.options?.map(opt => {
                              const stateHandlers: Record<string, Function> = {
@@ -379,3 +382,5 @@ export default function MarketAnalyzerPage() {
         </div>
     );
 }
+
+    
