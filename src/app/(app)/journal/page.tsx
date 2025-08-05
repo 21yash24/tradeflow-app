@@ -26,7 +26,7 @@ import {
 import { AddTradeFlow, type Trade, type AddTradeFormValues } from "@/components/add-trade-form";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
-import { analyzeTrade, TradeAnalysis } from "@/ai/flows/trade-analyst-flow";
+import { tradeAnalysisTool, type TradeAnalysis } from "@/ai/flows/trade-analyst-flow";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { db, auth } from "@/lib/firebase";
 import { collection, onSnapshot, query, where, orderBy, doc, updateDoc } from "firebase/firestore";
@@ -251,7 +251,7 @@ export default function JournalPage() {
 
 
     try {
-        const result = await analyzeTrade({
+        const result = await tradeAnalysisTool({
             pair: viewingTrade.pair,
             type: viewingTrade.type as 'buy' | 'sell',
             pnl: averagePnl,
@@ -261,6 +261,7 @@ export default function JournalPage() {
         setAnalysisResult(result);
     } catch (error) {
         console.error("Error analyzing trade:", error);
+        toast({ title: "AI Analysis Failed", description: "Could not get a response from the AI.", variant: "destructive" });
     } finally {
         setIsAnalyzing(false);
     }
@@ -626,3 +627,5 @@ export default function JournalPage() {
     </div>
   );
 }
+
+    
