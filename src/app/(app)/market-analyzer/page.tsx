@@ -18,6 +18,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { TradeFlowLogo } from '@/components/icons';
 import { type MarketAnalysis } from '@/ai/flows/market-analyzer-flow';
 import { type TradeAnalysis } from '@/ai/flows/trade-analyst-flow';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '@/lib/firebase';
 
 type Message = {
     id: string;
@@ -85,6 +87,7 @@ function BotMessage({ output }: { output: ThinkerOutput }) {
 }
 
 const AiThinker = () => {
+    const [user] = useAuthState(auth);
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -133,7 +136,7 @@ const AiThinker = () => {
     
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if ((!input.trim() && !imagePreview) || isLoading) return;
+        if ((!input.trim() && !imagePreview) || isLoading || !user) return;
 
         const userMessage = (
             <div>
@@ -155,6 +158,7 @@ const AiThinker = () => {
             const result = await thinker({
                 prompt: currentInput,
                 photoDataUri: currentImage || undefined,
+                userId: user.uid,
             });
             addMessage('bot', <BotMessage output={result} />);
         } catch (error) {
@@ -227,7 +231,7 @@ const AiThinker = () => {
                             }}
                         />
                     </div>
-                    <Button type="submit" size="icon" disabled={isLoading || (!input.trim() && !imagePreview)}>
+                    <Button type="submit" disabled={isLoading || (!input.trim() && !imagePreview)}>
                         {isLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4" />}
                     </Button>
                 </form>

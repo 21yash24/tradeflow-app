@@ -13,12 +13,14 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { marketAnalysisTool, type MarketAnalysis } from './market-analyzer-flow';
 import { tradeAnalysisTool, type TradeAnalysis } from './trade-analyst-flow';
+import { getTradesTool } from './get-trades-tool';
 
 const ThinkerInputSchema = z.object({
   prompt: z.string().describe('The user\'s request or question.'),
   photoDataUri: z.string().optional().describe(
       "A photo of a trading chart, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
   ),
+  userId: z.string().describe("The user's unique ID."),
 });
 export type ThinkerInput = z.infer<typeof ThinkerInputSchema>;
 
@@ -51,12 +53,13 @@ const thinkerTool = ai.defineFlow(
       Your task is to understand the user's intent and provide a helpful response.
       - If the user asks for chart analysis or has questions about a market setup, you MUST use the 'marketAnalysisTool'.
       - If the user wants to review a past trade (discussing P/L, emotions, or notes), you MUST use the 'tradeAnalysisTool'.
+      - If the user asks questions about their past trades, performance, or trading patterns (e.g., "what's my best setup?", "summarize my trades"), you MUST use the 'getTradesTool' to fetch the data and then answer the question.
       - For anything else related to trading psychology, discipline, or general questions, provide a helpful, conversational answer directly.
       - If you use a tool, present the output of that tool. Your main answer should just be a short summary or acknowledgment. For example "Here is the market analysis you requested:".
       - If the user provides an image but does not explicitly ask to analyze it, you should ask them if they want you to analyze it.
       `,
-      input: { photoDataUri: input.photoDataUri },
-      tools: [marketAnalysisTool, tradeAnalysisTool],
+      input: { photoDataUri: input.photoDataUri, userId: input.userId },
+      tools: [marketAnalysisTool, tradeAnalysisTool, getTradesTool],
       output: {
         schema: ThinkerOutputSchema
       }
