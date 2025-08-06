@@ -226,7 +226,7 @@ const CommunityPost = React.memo(({ post, onPostUpdated }: { post: Post; onPostU
 
     return (
          <>
-            <Card className="mb-4 hover:shadow-lg transition-shadow duration-300">
+            <Card className="mb-4 hover:bg-card/80 transition-colors duration-300">
                 <CardContent className="p-4">
                     <div className="flex items-start gap-4">
                         <Link href={`/profile/${post.authorId}`}>
@@ -279,7 +279,7 @@ const CommunityPost = React.memo(({ post, onPostUpdated }: { post: Post; onPostU
 CommunityPost.displayName = 'CommunityPost';
 
 
-const CreatePost = () => {
+const CreatePost = ({ onPostCreated }: { onPostCreated: () => void }) => {
     const [user] = useAuthState(auth);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const { toast } = useToast();
@@ -347,6 +347,7 @@ const CreatePost = () => {
                 fileInputRef.current.value = '';
             }
             toast({ title: "Post published!", description: "Your thoughts have been shared with the community." });
+            onPostCreated();
         } catch (error) {
             console.error("Error creating post:", error);
             toast({ title: "Error", description: "Could not publish your post.", variant: "destructive" });
@@ -410,34 +411,6 @@ const CreatePost = () => {
     );
 };
 
-const GroupsPanel = () => {
-    const groups = [
-        { name: 'All Posts', icon: Home, active: true },
-        { name: 'Swing Traders', icon: TrendingUp },
-        { name: 'Day Traders', icon: Users },
-        { name: 'Price Action Ninjas', icon: Bot },
-        { name: 'Algo Wizards', icon: Globe },
-        { name: 'Crypto Crew', icon: Hash },
-    ];
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Groups</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-2">
-                    {groups.map(group => (
-                        <Button key={group.name} variant={group.active ? "secondary" : "ghost"} className="w-full justify-start">
-                           <group.icon className="mr-2 h-5 w-5" />
-                           {group.name}
-                        </Button>
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
-    )
-};
-
 const RightPanel = () => {
     return (
         <div className="space-y-6 h-full flex flex-col">
@@ -490,12 +463,9 @@ const CommunityPage = () => {
 
   return (
     <div className="grid lg:grid-cols-10 gap-6 h-full">
-      <div className="lg:col-span-2 hidden lg:block">
-          <GroupsPanel />
-      </div>
-      <div className="lg:col-span-5 space-y-4">
-        <h1 className="text-3xl font-bold font-headline lg:hidden">Community Hub</h1>
-        <CreatePost />
+      <div className="lg:col-span-7 space-y-4">
+        <h1 className="text-3xl font-bold font-headline">Community Hub</h1>
+        <CreatePost onPostCreated={() => {}} />
          <div>
             {isLoadingPosts ? (
                  <div className="flex flex-col items-center justify-center text-center gap-4 p-8 rounded-lg">

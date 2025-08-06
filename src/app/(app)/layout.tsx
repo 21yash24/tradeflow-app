@@ -14,6 +14,11 @@ import {
   User,
   ClipboardCheck,
   BrainCircuit,
+  TrendingUp,
+  Bot,
+  Hash,
+  Globe,
+  Home,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -42,14 +47,22 @@ import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import type { UserProfile } from "@/services/user-service";
+import { Separator } from "@/components/ui/separator";
 
-const navItems = [
+const mainNavItems = [
     { href: "/journal", icon: BookOpenCheck, label: "Journal" },
     { href: "/analytics", icon: BarChart3, label: "Analytics" },
     { href: "/discipline", icon: ClipboardCheck, label: "Discipline" },
     { href: "/market-analyzer", icon: BrainCircuit, label: "AI Analyst" },
-    { href: "/community", icon: Users, label: "Community" },
 ];
+
+const communityNavItems = [
+    { href: "/community", icon: Home, label: 'All Posts', exact: true },
+    { href: "/community/swing-traders", icon: TrendingUp, label: 'Swing Traders' },
+    { href: "/community/day-traders", icon: Users, label: 'Day Traders' },
+    { href: "/community/price-action", icon: Bot, label: 'Price Action' },
+    { href: "/community/crypto", icon: Hash, label: 'Crypto Crew' },
+]
 
 function UserProfileDropdown() {
     const [user] = useAuthState(auth);
@@ -110,7 +123,10 @@ function UserProfileDropdown() {
 function DesktopSidebar() {
     const pathname = usePathname();
     const [user] = useAuthState(auth);
-    const isActive = (path: string) => {
+    const isActive = (path: string, exact: boolean = false) => {
+        if (exact) {
+            return pathname === path;
+        }
         if (path === '/profile') {
             return pathname.startsWith('/profile');
         }
@@ -129,12 +145,8 @@ function DesktopSidebar() {
                <UserProfileDropdown />
            </div>
            <nav className="flex flex-col gap-2 flex-grow">
-               {[...navItems, { href: profileLink, icon: User, label: 'Profile'}].map(item => {
-                 // Special handling for the dynamic profile link
-                 const finalHref = item.label === 'Profile' ? profileLink : item.href;
-                 
-                 return (
-                    <Link href={finalHref} key={item.href}>
+               {mainNavItems.map(item => (
+                    <Link href={item.href} key={item.href}>
                        <div
                        className={cn(
                            "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
@@ -147,10 +159,44 @@ function DesktopSidebar() {
                            <span>{item.label}</span>
                        </div>
                    </Link>
-               )}
-            )}
+                ))}
+                
+                <Separator className="my-2" />
+                
+                <h4 className="px-4 py-2 text-sm font-semibold text-muted-foreground/80">Community</h4>
+
+                {communityNavItems.map(item => (
+                     <Link href={item.href} key={item.href}>
+                       <div
+                       className={cn(
+                           "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
+                           isActive(item.href, item.exact)
+                           ? "bg-primary/90 text-primary-foreground font-semibold"
+                           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                       )}
+                       >
+                           <item.icon className="w-5 h-5" />
+                           <span>{item.label}</span>
+                       </div>
+                   </Link>
+                ))}
+
+
            </nav>
-           <div className="mt-auto">
+           <div className="mt-auto flex flex-col gap-2">
+                <Link href={`/profile/${user?.uid}`}>
+                   <div
+                       className={cn(
+                           "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
+                           isActive("/profile")
+                           ? "bg-primary/90 text-primary-foreground font-semibold"
+                           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                       )}
+                       >
+                       <User className="w-5 h-5" />
+                       <span>Profile</span>
+                   </div>
+                </Link>
                 <Link href="/settings">
                    <div
                        className={cn(
@@ -172,14 +218,20 @@ function DesktopSidebar() {
 function MobileBottomNav() {
     const pathname = usePathname();
     const isActive = (path: string) => pathname.startsWith(path);
-    const mainNavItems = navItems.filter(item => item.href !== '/profile' && item.href !== '/settings');
+    const mobileNavItems = [
+        { href: "/journal", icon: BookOpenCheck, label: "Journal" },
+        { href: "/analytics", icon: BarChart3, label: "Analytics" },
+        { href: "/community", icon: Users, label: "Community" },
+        { href: "/discipline", icon: ClipboardCheck, label: "Discipline" },
+        { href: "/market-analyzer", icon: BrainCircuit, label: "AI Analyst" },
+    ];
 
 
     return (
          <div className="lg:hidden fixed bottom-0 left-0 z-50 w-full h-16 bg-card border-t border-border">
             <TooltipProvider>
             <div className="grid h-full max-w-lg grid-cols-5 mx-auto font-medium">
-                {mainNavItems.map(item => (
+                {mobileNavItems.map(item => (
                     
                          <Tooltip key={item.href}>
                             <TooltipTrigger asChild>
@@ -273,3 +325,5 @@ export default function AppLayout({
     </div>
   );
 }
+
+    
