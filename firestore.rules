@@ -2,70 +2,65 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to check if a user is authenticated
-    function isSignedIn() {
+
+    function isAuth() {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is the owner of a document
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    // Users: Can read anyone's profile, but only write to their own.
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isOwner(userId);
-
-      // Followers/Following subcollections: A user can read their own followers/following lists.
-      // A user can write to their own following list and to another user's followers list (to add themselves).
-      match /followers/{followerId} {
-        allow read: if isSignedIn();
-        allow write: if isOwner(followerId); // Allows a user to remove a follower (future functionality)
+      allow read: if isAuth();
+      allow create, update: if isAuth() && isOwner(userId);
+      
+      match /following/{targetId} {
+        allow read, write: if isAuth() && isOwner(userId);
       }
-      match /following/{followingId} {
-        allow read: if isSignedIn();
-        allow write: if isOwner(userId); // Allows a user to add/remove someone they follow
+      match /followers/{followerId} {
+        allow read: if isAuth();
+        allow write: if isAuth() && request.auth.uid == followerId;
+      }
+    }
+
+    match /posts/{postId} {
+      allow list, read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isAuth() && isOwner(resource.data.authorId);
+
+      match /comments/{commentId} {
+        allow list, read, create: if isAuth();
+        allow update, delete: if false; // Comments are immutable for now
       }
     }
     
-    // Allow users to add themselves to another user's followers list
-    match /users/{targetUserId}/followers/{currentUserId} {
-        allow create: if isOwner(currentUserId);
-        allow delete: if isOwner(currentUserId);
-    }
-
-    // Trades: Users can only create, read, update, and delete their own trades.
     match /trades/{tradeId} {
-      allow read, write: if isOwner(request.resource.data.userId) || (isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId);
+        allow read, write: if isAuth() && isOwner(resource.data.userId);
+    }
+    // This allows a user to query their own trades
+    match /trades/{tradeId} {
+        allow list: if isAuth() && request.query.where.constraints[0].value == request.auth.uid;
     }
 
-    // Accounts: Users can only manage their own accounts.
     match /accounts/{accountId} {
-      allow read, write: if isOwner(request.resource.data.userId) || (isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId);
+        allow read, write: if isAuth() && isOwner(resource.data.userId);
+    }
+    // This allows a user to query their own accounts
+    match /accounts/{accountId} {
+        allow list: if isAuth() && request.query.where.constraints[0].value == request.auth.uid;
     }
 
-    // Discipline Logs: Users can only manage their own discipline logs.
-    match /discipline/{logId} {
-       allow read, write: if isOwner(request.resource.data.userId) || (isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId);
+    match /discipline/{disciplineId} {
+        allow read, write: if isAuth() && request.auth.uid == disciplineId.split('_')[0];
+    }
+    // This allows a user to query their own discipline entries
+     match /discipline/{disciplineId} {
+        allow list: if isAuth() && request.query.where.constraints[0].value == request.auth.uid;
     }
 
-    // Streaks: Users can manage their own streak.
     match /streaks/{userId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // Posts: Logged-in users can read/create posts. Only authors can update/delete.
-    match /posts/{postId} {
-      allow read, create: if isSignedIn();
-      allow update, delete: if isOwner(resource.data.authorId);
-      
-      // Comments: Any signed-in user can add a comment.
-      match /comments/{commentId} {
-        allow read, create: if isSignedIn();
-        // Future: allow update, delete: if isOwner(resource.data.authorId);
-      }
+      allow read, write: if isAuth() && isOwner(userId);
     }
   }
 }
