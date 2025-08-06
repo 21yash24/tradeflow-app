@@ -43,6 +43,13 @@ const thinkerTool = ai.defineFlow(
   },
   async (input) => {
     
+    // To pass the userId to the tools, we need to include it in the tool input.
+    const toolInput = {
+      ...input,
+      // The marketAnalysisTool expects the prompt to be named 'concerns'.
+      concerns: input.prompt, 
+    };
+    
     const llmResponse = await ai.generate({
       prompt: `You are a friendly and conversational AI trading assistant.
       
@@ -51,14 +58,14 @@ const thinkerTool = ai.defineFlow(
       ${input.photoDataUri ? 'The user has also provided this chart image: {{media url=photoDataUri}}' : ''}
 
       Your task is to understand the user's intent and provide a helpful response.
-      - If the user asks for chart analysis or has questions about a market setup, you MUST use the 'marketAnalysisTool'.
+      - If the user provides an image and asks for chart analysis or has questions about a market setup, you MUST use the 'marketAnalysisTool'.
       - If the user wants to review a past trade (discussing P/L, emotions, or notes), you MUST use the 'tradeAnalysisTool'.
       - If the user asks questions about their past trades, performance, or trading patterns (e.g., "what's my best setup?", "summarize my trades"), you MUST use the 'getTradesTool' to fetch the data and then answer the question.
       - For anything else related to trading psychology, discipline, or general questions, provide a helpful, conversational answer directly.
       - If you use a tool, present the output of that tool. Your main answer should just be a short summary or acknowledgment. For example "Here is the market analysis you requested:".
       - If the user provides an image but does not explicitly ask to analyze it, you should ask them if they want you to analyze it.
       `,
-      input: { photoDataUri: input.photoDataUri, userId: input.userId },
+      input: toolInput,
       tools: [marketAnalysisTool, tradeAnalysisTool, getTradesTool],
       output: {
         schema: ThinkerOutputSchema

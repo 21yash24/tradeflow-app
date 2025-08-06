@@ -10,6 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { getTradesTool } from './get-trades-tool';
 
 const MarketAnalysisInputSchema = z.object({
   photoDataUri: z
@@ -20,6 +21,7 @@ const MarketAnalysisInputSchema = z.object({
   userBias: z.string().optional().describe("The user's initial bias (e.g., Bullish, Bearish, Neutral). If not provided, assume Neutral."),
   timeframe: z.string().optional().describe("The trading timeframe (e.g., Intraday, Swing, Position). If not provided, try to infer from the chart."),
   concerns: z.string().optional().describe("The user's specific questions or concerns about the chart setup. If not provided, perform a general analysis."),
+  userId: z.string().describe("The user's unique ID to fetch their trade history for context."),
 });
 export type MarketAnalysisInput = z.infer<typeof MarketAnalysisInputSchema>;
 
@@ -40,6 +42,7 @@ const prompt = ai.definePrompt({
   name: 'marketAnalystPrompt',
   input: { schema: MarketAnalysisInputSchema },
   output: { schema: MarketAnalysisSchema },
+  tools: [getTradesTool],
   prompt: `You are an expert trading mentor, providing a "second opinion" on a user's chart analysis. Your goal is to offer objective insights and challenge potential biases without giving direct financial advice.
 
 Analyze the provided chart screenshot and the user's commentary.
@@ -48,6 +51,9 @@ Analyze the provided chart screenshot and the user's commentary.
 - **Initial Bias:** {{{userBias}}}
 - **Trading Timeframe:** {{{timeframe}}}
 - **Specific Concerns:** "{{{concerns}}}"
+
+**User's Past Performance (for context):**
+To provide a more personalized analysis, you MUST first use the 'getTradesTool' to retrieve a summary of the user's recent trading history. Use this historical data to identify recurring patterns, strengths, and weaknesses that might be relevant to the current chart setup. For example, if the user has a history of success with a particular pattern that appears on the chart, you should mention it. Conversely, if the current setup resembles past losing trades, gently point that out.
 
 **Chart:**
 {{media url=photoDataUri}}
@@ -80,7 +86,7 @@ const analyzeMarketFlow = ai.defineFlow(
 export const marketAnalysisTool = ai.defineTool(
     {
         name: 'marketAnalysisTool',
-        description: 'Analyzes a trading chart image to provide market insights, identify patterns, and address user concerns.',
+        description: 'Analyzes a trading chart image to provide market insights, identify patterns, and address user concerns. It also considers the user\'s past trading performance for personalized feedback.',
         inputSchema: MarketAnalysisInputSchema,
         outputSchema: MarketAnalysisSchema,
     },
