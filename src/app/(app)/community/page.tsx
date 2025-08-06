@@ -26,6 +26,7 @@ import { type MarketAnalysis } from '@/ai/flows/market-analyzer-flow';
 import { type TradeAnalysis } from '@/ai/flows/trade-analyst-flow';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle, TrendingDown, MinusCircle, Layers, Target, Wand2, Lightbulb, ShieldCheck, AlertCircle } from 'lucide-react';
+import Image from 'next/image';
 
 
 type Post = {
@@ -756,4 +757,3 @@ const CommunityPage = () => {
 };
 
 export default CommunityPage;
-
