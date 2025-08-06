@@ -318,25 +318,23 @@ const CreatePost = ({ onPostCreated }: { onPostCreated: () => void }) => {
         setIsSubmitting(true);
 
         try {
-            let imageUrl: string | undefined = undefined;
-            if (imageFile && imagePreview) {
-                const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${imageFile.name}`);
-                await uploadString(storageRef, imagePreview, 'data_url');
-                imageUrl = await getDownloadURL(storageRef);
-            }
-
             const postData: any = {
                 authorId: user.uid,
                 authorName: profile.displayName,
                 authorHandle: profile.displayName?.toLowerCase().replace(/\s/g, '_') || 'user',
                 authorAvatar: profile.photoURL,
                 content: newPostContent,
-                imageUrl: imageUrl,
                 createdAt: serverTimestamp(),
                 likeCount: 0,
                 commentCount: 0,
                 likedBy: [],
             };
+
+            if (imageFile && imagePreview) {
+                const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${imageFile.name}`);
+                await uploadString(storageRef, imagePreview, 'data_url');
+                postData.imageUrl = await getDownloadURL(storageRef);
+            }
 
             await addDoc(collection(db, 'posts'), postData);
 
@@ -493,5 +491,3 @@ const CommunityPage = () => {
 };
 
 export default CommunityPage;
-
-    
