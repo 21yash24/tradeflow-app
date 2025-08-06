@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
-import { Loader2, Paperclip, Send, TrendingDown, MinusCircle, Layers, Target, Wand2, Lightbulb, ShieldCheck, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react';
+import { Loader2, Paperclip, Send, TrendingDown, Layers, Target, Wand2, Lightbulb, ShieldCheck, AlertCircle, CheckCircle, TrendingUp, MinusCircle } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +16,7 @@ import { TradeFlowLogo } from '@/components/icons';
 import { type MarketAnalysis } from '@/ai/flows/market-analyzer-flow';
 import { type TradeAnalysis } from '@/ai/flows/trade-analyst-flow';
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 
 type AiMessage = {
     id: string;
@@ -82,6 +83,13 @@ function BotMessage({ output }: { output: ThinkerOutput }) {
     return <p>{output.answer}</p>;
 }
 
+const examplePrompts = [
+    "Analyze this chart for me.",
+    "Review my last trade on EUR/USD.",
+    "What are my common trading mistakes?",
+    "How can I improve my trading discipline?",
+]
+
 const AiThinker = () => {
     const [user] = useAuthState(auth);
     const [messages, setMessages] = useState<AiMessage[]>([]);
@@ -91,11 +99,6 @@ const AiThinker = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
-
-    useEffect(() => {
-        // Initial message from the bot
-        addMessage('bot', "Hello! I'm your AI trading thinker. You can ask me to analyze a chart, review a trade, or discuss your trading psychology. How can I help you today?");
-    }, []);
 
     useEffect(() => {
         // Scroll to the bottom of the chat on new messages
@@ -130,13 +133,18 @@ const AiThinker = () => {
         }
     };
     
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent, prompt?: string) => {
         e.preventDefault();
-        if ((!input.trim() && !imagePreview) || isLoading || !user) return;
+        const currentInput = prompt || input;
+        if ((!currentInput.trim() && !imagePreview) || isLoading || !user) return;
+        
+        if (messages.length === 0) {
+            addMessage('bot', "Hello! I'm your AI trading thinker. How can I help you today?");
+        }
 
         const userMessage = (
             <div>
-                {input}
+                {currentInput}
                 {imagePreview && <Image src={imagePreview} alt="chart" width={200} height={150} className="rounded-md mt-2" />}
             </div>
         );
@@ -144,7 +152,6 @@ const AiThinker = () => {
         setIsLoading(true);
         addMessage('bot', '', true);
 
-        const currentInput = input;
         const currentImage = imagePreview;
 
         setInput('');
@@ -169,34 +176,59 @@ const AiThinker = () => {
     return (
         <Card className="h-full flex flex-col max-h-[85vh]">
             <CardHeader>
-                <CardTitle>AI Analyst</CardTitle>
+                <CardTitle className='font-headline'>AI Analyst</CardTitle>
             </CardHeader>
             <CardContent className="flex-grow p-4 overflow-y-auto" ref={scrollRef}>
-                <div className="space-y-6">
-                    {messages.map((msg) => (
-                        <div key={msg.id} className={cn("flex items-end gap-3", msg.sender === 'user' && 'justify-end')}>
-                             {msg.sender === 'bot' && (
-                                <Avatar className="h-8 w-8 self-start">
-                                    <div className="bg-primary rounded-full p-1.5">
-                                        <TradeFlowLogo className="text-primary-foreground" />
-                                    </div>
-                                </Avatar>
-                            )}
-                            <div className={cn(
-                                "max-w-md p-3 rounded-2xl",
-                                msg.sender === 'bot' ? 'bg-muted rounded-bl-none' : 'bg-primary text-primary-foreground rounded-br-none'
-                            )}>
-                                {msg.isTyping ? (
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                        <span className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                        <span className="h-2 w-2 bg-current rounded-full animate-bounce" />
-                                    </div>
-                                ) : msg.content}
-                            </div>
+                {messages.length === 0 ? (
+                     <div className="flex flex-col h-full items-center justify-center text-center">
+                        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
+                            <TradeFlowLogo className="h-24 w-24 text-primary" />
+                        </motion.div>
+                        <h2 className="text-2xl font-semibold mt-4">Your Personal Trading Analyst</h2>
+                        <p className="text-muted-foreground mt-2 mb-6 max-w-md">Ask me anything about your charts, past trades, or trading psychology to get data-driven insights.</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
+                           {examplePrompts.map((prompt, i) => (
+                                <motion.div key={prompt} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 + i * 0.1, duration: 0.4 }}>
+                                    <Button variant="outline" className="w-full text-left justify-start h-auto py-2" onClick={(e) => handleSubmit(e, prompt)}>
+                                        <p className="whitespace-normal text-sm">{prompt}</p>
+                                    </Button>
+                                </motion.div>
+                           ))}
                         </div>
-                    ))}
-                </div>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {messages.map((msg) => (
+                            <motion.div 
+                                key={msg.id} 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.3 }}
+                                className={cn("flex items-end gap-3", msg.sender === 'user' && 'justify-end')}
+                            >
+                                {msg.sender === 'bot' && (
+                                    <Avatar className="h-8 w-8 self-start flex-shrink-0">
+                                        <div className="bg-primary rounded-full p-1.5">
+                                            <TradeFlowLogo className="text-primary-foreground" />
+                                        </div>
+                                    </Avatar>
+                                )}
+                                <div className={cn(
+                                    "max-w-md p-3 rounded-2xl",
+                                    msg.sender === 'bot' ? 'bg-muted rounded-bl-none' : 'bg-primary text-primary-foreground rounded-br-none'
+                                )}>
+                                    {msg.isTyping ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                            <span className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                            <span className="h-2 w-2 bg-current rounded-full animate-bounce" />
+                                        </div>
+                                    ) : msg.content}
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                )}
             </CardContent>
             
             <div className="p-2 border-t bg-background">
@@ -224,8 +256,7 @@ const AiThinker = () => {
                             disabled={isLoading}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSubmit(e);
+                                    handleSubmit(e, input);
                                 }
                             }}
                         />
