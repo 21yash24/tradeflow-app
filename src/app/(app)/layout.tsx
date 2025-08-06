@@ -14,11 +14,7 @@ import {
   User,
   ClipboardCheck,
   BrainCircuit,
-  TrendingUp,
-  Bot,
-  Hash,
-  Globe,
-  Home,
+  Bell,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -47,22 +43,14 @@ import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import type { UserProfile } from "@/services/user-service";
-import { Separator } from "@/components/ui/separator";
 
 const mainNavItems = [
     { href: "/journal", icon: BookOpenCheck, label: "Journal" },
     { href: "/analytics", icon: BarChart3, label: "Analytics" },
     { href: "/discipline", icon: ClipboardCheck, label: "Discipline" },
     { href: "/market-analyzer", icon: BrainCircuit, label: "AI Analyst" },
+    { href: "/community", icon: Users, label: "Community" },
 ];
-
-const communityNavItems = [
-    { href: "/community", icon: Home, label: 'All Posts', exact: true },
-    { href: "/community/swing-traders", icon: TrendingUp, label: 'Swing Traders' },
-    { href: "/community/day-traders", icon: Users, label: 'Day Traders' },
-    { href: "/community/price-action", icon: Bot, label: 'Price Action' },
-    { href: "/community/crypto", icon: Hash, label: 'Crypto Crew' },
-]
 
 function UserProfileDropdown() {
     const [user] = useAuthState(auth);
@@ -109,11 +97,20 @@ function UserProfileDropdown() {
                         <span>Profile</span>
                     </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem>
+                    <Bell className="mr-2 h-4 w-4" />
+                    <span>Notifications</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                      <Link href="/settings">
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Settings</span>
                     </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut(auth)}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -122,18 +119,7 @@ function UserProfileDropdown() {
 
 function DesktopSidebar() {
     const pathname = usePathname();
-    const [user] = useAuthState(auth);
-    const isActive = (path: string, exact: boolean = false) => {
-        if (exact) {
-            return pathname === path;
-        }
-        if (path === '/profile') {
-            return pathname.startsWith('/profile');
-        }
-        return pathname.startsWith(path);
-    }
-    
-    const profileLink = user ? `/profile/${user.uid}` : '/login';
+    const isActive = (path: string) => pathname.startsWith(path);
 
     return (
         <aside className="hidden lg:flex flex-col w-64 bg-card p-4 rounded-r-xl shadow-lg fixed h-full">
@@ -160,43 +146,8 @@ function DesktopSidebar() {
                        </div>
                    </Link>
                 ))}
-                
-                <Separator className="my-2" />
-                
-                <h4 className="px-4 py-2 text-sm font-semibold text-muted-foreground/80">Community</h4>
-
-                {communityNavItems.map(item => (
-                     <Link href={item.href} key={item.href}>
-                       <div
-                       className={cn(
-                           "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-                           isActive(item.href, item.exact)
-                           ? "bg-primary/90 text-primary-foreground font-semibold"
-                           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                       )}
-                       >
-                           <item.icon className="w-5 h-5" />
-                           <span>{item.label}</span>
-                       </div>
-                   </Link>
-                ))}
-
-
            </nav>
            <div className="mt-auto flex flex-col gap-2">
-                <Link href={`/profile/${user?.uid}`}>
-                   <div
-                       className={cn(
-                           "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-                           isActive("/profile")
-                           ? "bg-primary/90 text-primary-foreground font-semibold"
-                           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                       )}
-                       >
-                       <User className="w-5 h-5" />
-                       <span>Profile</span>
-                   </div>
-                </Link>
                 <Link href="/settings">
                    <div
                        className={cn(
@@ -325,5 +276,3 @@ export default function AppLayout({
     </div>
   );
 }
-
-    
