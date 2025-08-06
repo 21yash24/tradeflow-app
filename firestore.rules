@@ -1,68 +1,60 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
+
     // Helper function to check if a user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is the owner of the resource
+    // Helper function to check if the user owns the document by checking the userId field
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Users can read their own profile and other users' profiles,
-    // but can only write to their own.
+    // Users collection
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isOwner(userId);
+      allow get: if isAuthenticated(); // Any logged-in user can view a profile
+      allow update: if isOwner(userId); // Only the owner can update their profile
 
-      // Users can manage their own following/followers list
-      match /following/{targetUserId} {
-        allow read, write: if isOwner(userId);
+      // Followers and Following subcollections
+      match /followers/{followerId} {
+        allow read, create, delete: if isAuthenticated();
       }
-       match /followers/{followerId} {
-        allow read: if isAuthenticated();
-        allow write: if isOwner(followerId);
+      match /following/{followingId} {
+        allow read, create, delete: if isAuthenticated();
       }
-    }
-
-    // Users can only create, read, update, or delete their own trades
-    match /trades/{tradeId} {
-      allow read, write, delete, create: if isAuthenticated() && isOwner(request.resource.data.userId);
     }
     
-    // Users can only manage their own trading accounts
+    // Trades, Accounts, Discipline, Streaks: User-owned data
+    match /trades/{tradeId} {
+      allow read, write: if isOwner(resource.data.userId); // Check existing resource on read/update
+      allow create: if isOwner(request.resource.data.userId); // Check incoming resource on create
+    }
     match /accounts/{accountId} {
-       allow read, write, delete, create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow read, write: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
     }
-
-    // Users can only manage their own discipline entries
     match /discipline/{disciplineId} {
-       allow read, write, delete, create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow read, write: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
     }
-
-    // Users can only manage their own streak document
     match /streaks/{userId} {
+        // The document ID is the user's ID
         allow read, write: if isOwner(userId);
     }
 
-    // Allow any authenticated user to read community posts
-    // Only the author can create, update, or delete their own posts
+    // Community Posts collection
     match /posts/{postId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isOwner(request.resource.data.authorId);
-      allow update, delete: if isAuthenticated() && isOwner(resource.data.authorId);
+      allow create: if isOwner(request.resource.data.authorId);
+      allow update, delete: if isOwner(resource.data.authorId);
 
-      // Any authenticated user can create comments
-      // Only the author of the comment can update/delete it.
+      // Comments subcollection within a post
       match /comments/{commentId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && isOwner(request.resource.data.authorId);
-        allow update, delete: if isAuthenticated() && isOwner(resource.data.authorId);
+        allow read, create: if isAuthenticated();
+        allow update, delete: if isOwner(resource.data.authorId);
       }
     }
   }
