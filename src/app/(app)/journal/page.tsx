@@ -287,6 +287,7 @@ export default function JournalPage() {
         userId: user.uid,
         date: format(values.date, 'yyyy-MM-dd'),
         preTradeChecklist: values.preTradeChecklist || null,
+        setupGrade: values.setupGrade || null,
     };
     
     // This is for editing an existing trade
@@ -754,4 +755,5 @@ export default function JournalPage() {
     
 
     
+
 
