@@ -51,16 +51,17 @@ The user has provided the following information:
 - **Chart Screenshot:** {{media url=screenshotDataUri}}
 {{/if}}
 
-Analyze the text and the image (if provided) to fill in the following fields.
-- **pair:** Identify the currency pair.
-- **type:** Determine if it was a 'buy' (long) or 'sell' (short) trade.
-- **setup:** Extract the name of the trading setup or strategy.
+Analyze the text and the image (if provided) to fill in the following fields. You must make a best effort to determine each field.
+
+- **pair:** Identify the currency pair (e.g., 'EUR/USD', 'GBP/JPY', 'XAU/USD', 'NAS100'). Standardize it to the common ticker format with a '/'.
+- **type:** Determine if it was a 'buy' (long, longed) or 'sell' (short, shorted) trade. This must be one of 'buy' or 'sell'.
+- **setup:** Extract the name of the trading setup or strategy (e.g., "Breakout", "Reversal", "Continuation", "ICT FVG").
 - **rr:** If the user mentions a profit or loss in terms of "R" (e.g., "2R win", "made 2.5R", "lost 1R"), extract that number. A win should be positive, a loss should be negative. If not mentioned, do not include the field in the output.
-- **notes:** Use the user's original description as the notes.
+- **notes:** Use the user's original description as the notes. If the user only provides an image, you can briefly describe what you see.
 - **confidence:** If confidence is mentioned as a percentage, extract it.
 - **mentalState:** Extract any mention of feelings or mental state (e.g., "anxious", "confident").
 
-If a field cannot be determined, do not include it in the output. Return the data in the specified JSON format.
+If you cannot determine a field, do your best to infer it or leave it out if it's truly not present. Do not invent data. Return the data in the specified JSON format.
 `,
 });
 
