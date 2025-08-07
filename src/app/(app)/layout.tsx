@@ -251,12 +251,20 @@ export default function AppLayout({
       </div>
     )
   }
+  
+  const isAnalystPage = pathname === '/market-analyzer';
 
   return (
     <div className="flex min-h-screen bg-background">
         <DesktopSidebar />
-        <main className="flex-1 lg:ml-64 p-4 md:p-6 lg:p-8 pb-20 lg:pb-8 overflow-auto">
-             <div className="lg:hidden flex justify-between items-center mb-4">
+        <main className={cn(
+            "flex-1 flex flex-col lg:ml-64",
+            isAnalystPage ? "p-0" : "p-4 md:p-6 lg:p-8 pb-20 lg:pb-8"
+        )}>
+             <div className={cn(
+                 "lg:hidden flex justify-between items-center mb-4",
+                 isAnalystPage ? "p-4" : "p-0"
+             )}>
                  <Link href="/" className="flex items-center gap-2">
                     <TradeFlowLogo className="h-7 w-auto text-primary" />
                     <span className="font-headline font-bold text-lg">TradeFlow</span>
@@ -268,6 +276,7 @@ export default function AppLayout({
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
+                className={cn(isAnalystPage && "flex-grow min-h-0")}
             >
                 {children}
             </motion.div>

@@ -177,19 +177,25 @@ const AiThinker = () => {
             <div className="flex-grow p-4 overflow-y-auto" ref={scrollRef}>
                 {messages.length === 0 ? (
                      <div className="flex flex-col h-full items-center justify-center text-center">
-                        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
-                            <TradeFlowLogo className="h-24 w-24 text-primary" />
-                        </motion.div>
-                        <h2 className="text-2xl font-semibold mt-4">Your Personal Trading Analyst</h2>
-                        <p className="text-muted-foreground mt-2 mb-6 max-w-md">Ask me anything about your charts, past trades, or trading psychology to get data-driven insights.</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
-                           {examplePrompts.map((prompt, i) => (
-                                <motion.div key={prompt} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 + i * 0.1, duration: 0.4 }}>
-                                    <Button variant="outline" className="w-full text-left justify-start h-auto py-2" onClick={(e) => handleSubmit(e, prompt)}>
-                                        <p className="whitespace-normal text-sm">{prompt}</p>
-                                    </Button>
-                                </motion.div>
-                           ))}
+                        <div className="flex flex-col items-center justify-center flex-grow">
+                            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
+                                <div className="bg-primary/20 p-4 rounded-full">
+                                    <div className="bg-primary/80 p-3 rounded-full">
+                                         <TradeFlowLogo className="h-16 w-16 text-primary-foreground" />
+                                    </div>
+                                </div>
+                            </motion.div>
+                            <h2 className="text-2xl font-semibold mt-4 font-headline">Your Personal Trading Analyst</h2>
+                            <p className="text-muted-foreground mt-2 mb-6 max-w-md">Ask me anything about your charts, past trades, or trading psychology to get data-driven insights.</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
+                            {examplePrompts.map((prompt, i) => (
+                                    <motion.div key={prompt} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 + i * 0.1, duration: 0.4 }}>
+                                        <Button variant="outline" className="w-full text-left justify-start h-auto py-2" onClick={(e) => handleSubmit(e, prompt)}>
+                                            <p className="whitespace-normal text-sm">{prompt}</p>
+                                        </Button>
+                                    </motion.div>
+                            ))}
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -268,7 +274,7 @@ const AiThinker = () => {
 
 export default function MarketAnalyzerPage() {
   return (
-    <div className="h-full -m-4 md:-m-6 lg:-m-8">
+    <div className="h-full">
         <AiThinker />
     </div>
   );
