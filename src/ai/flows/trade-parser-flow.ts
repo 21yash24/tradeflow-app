@@ -55,12 +55,12 @@ Analyze the text and the image (if provided) to fill in the following fields.
 - **pair:** Identify the currency pair.
 - **type:** Determine if it was a 'buy' (long) or 'sell' (short) trade.
 - **setup:** Extract the name of the trading setup or strategy.
-- **rr:** If the user mentions a profit or loss in terms of "R" (e.g., "2R win", "made 2.5R", "lost 1R"), extract that number. A win should be positive, a loss should be negative. If not mentioned, leave it empty.
+- **rr:** If the user mentions a profit or loss in terms of "R" (e.g., "2R win", "made 2.5R", "lost 1R"), extract that number. A win should be positive, a loss should be negative. If not mentioned, do not include the field in the output.
 - **notes:** Use the user's original description as the notes.
 - **confidence:** If confidence is mentioned as a percentage, extract it.
 - **mentalState:** Extract any mention of feelings or mental state (e.g., "anxious", "confident").
 
-If a field cannot be determined, leave it empty. Return the data in the specified JSON format.
+If a field cannot be determined, do not include it in the output. Return the data in the specified JSON format.
 `,
 });
 
@@ -82,6 +82,13 @@ const tradeParserFlow = ai.defineFlow(
     if (!output.notes && input.description) {
         output.notes = input.description;
     }
+    
+    // The model might return rr: null, which Zod dislikes for an optional number.
+    // Explicitly set to undefined if it's not a valid number.
+    if (output.rr === null || typeof output.rr !== 'number') {
+        output.rr = undefined;
+    }
+
     return output;
   }
 );
