@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { AddTradeFlow, type Trade, type AddTradeFormValues } from "@/components/add-trade-form";
 import Image from "next/image";
