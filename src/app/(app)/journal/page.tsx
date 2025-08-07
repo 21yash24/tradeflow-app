@@ -5,7 +5,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2, Edit, Undo, EyeOff, Check, X } from "lucide-react";
+import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2, Edit, Undo, EyeOff, Check, X, Send } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -36,6 +36,8 @@ import { parseISO, format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { addDoc } from 'firebase/firestore';
+import { Textarea } from "@/components/ui/textarea";
+import { parseTrade, type TradeParseResult } from "@/ai/flows/trade-parser-flow";
 
 
 type Account = {
@@ -85,6 +87,110 @@ function TradeAnalysisResult({ analysis }: { analysis: TradeAnalysis }) {
             </Card>
 
         </div>
+    )
+}
+
+const AddTradeWithAiDialog = ({
+    onTradeParsed,
+}: {
+    onTradeParsed: (parsedData: TradeParseResult) => void;
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [text, setText] = useState("");
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const { toast } = useToast();
+
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result as string);
+                 if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                 }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    
+    const handleParseTrade = async () => {
+        if (!text.trim() && !imagePreview) {
+            toast({ title: "Please enter a description or upload an image.", variant: 'destructive' });
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const result = await parseTrade({
+                description: text,
+                screenshotDataUri: imagePreview || undefined,
+            });
+            onTradeParsed(result);
+            setIsOpen(false); // Close this dialog to open the main form
+        } catch (error) {
+            console.error("Error parsing trade with AI", error);
+            toast({ title: "AI Parsing Failed", description: "Could not understand the trade details. Please try again or enter manually.", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
+        }
+    }
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={(open) => {
+            if (!open) { // Reset on close
+                setText("");
+                setImagePreview(null);
+            }
+            setIsOpen(open);
+        }}>
+            <DialogTrigger asChild>
+                <Button variant="outline"><Wand2 className="mr-2" />Add with AI</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add Trade with AI</DialogTitle>
+                    <DialogDescription>
+                        Describe your trade in plain English. The AI will pre-fill the form for you.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                     <Textarea
+                        placeholder="e.g., 'Shorted EURUSD for a 2.5R win. It was a breakout setup and I felt confident.'"
+                        className="min-h-[120px]"
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        disabled={isLoading}
+                    />
+                    {imagePreview && (
+                        <div className="relative w-full h-48">
+                          <Image src={imagePreview} alt="Screenshot preview" layout="fill" objectFit="contain" className="rounded-md border" />
+                          <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => setImagePreview(null)} disabled={isLoading}>
+                              <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                     )}
+                </div>
+                <DialogFooter className="sm:justify-between items-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      ref={fileInputRef}
+                      onChange={handleImageChange}
+                    />
+                    <Button type="button" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
+                       <ImageIcon className="mr-2 h-4 w-4" />
+                       Upload Chart
+                    </Button>
+                    <Button onClick={handleParseTrade} disabled={isLoading}>
+                        {isLoading ? <Loader2 className="animate-spin mr-2"/> : <Wand2 className="mr-2 h-4 w-4" />}
+                        Parse Trade
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }
 
@@ -145,8 +251,8 @@ export default function JournalPage() {
   const activeTrades = trades.filter(t => !t.deleted);
   const deletedTrades = trades.filter(t => t.deleted);
 
-  const handleOpenAddDialog = () => {
-      setEditingTrade(null);
+  const handleOpenAddDialog = (initialData?: Partial<AddTradeFormValues>) => {
+      setEditingTrade(initialData as any);
       setTradeDialogOpen(true);
   }
   
@@ -159,6 +265,18 @@ export default function JournalPage() {
       setEditingTrade(tradeWithDate as any);
       setTradeDialogOpen(true);
   };
+  
+  const handleTradeParsed = (parsedData: TradeParseResult) => {
+    const initialData: Partial<AddTradeFormValues> & { setup: string } = {
+        pair: parsedData.pair,
+        type: parsedData.type,
+        setup: parsedData.setup,
+        notes: parsedData.notes,
+        rr: parsedData.rr,
+    };
+    handleOpenAddDialog(initialData);
+  }
+
 
   const handleTradeSubmit = async (values: AddTradeFormValues) => {
     if (!user) return;
@@ -170,7 +288,7 @@ export default function JournalPage() {
     };
     
     // This is for editing an existing trade
-    if (editingTrade) {
+    if (editingTrade && 'id' in editingTrade && editingTrade.id) {
         const tradeRef = doc(db, "trades", editingTrade.id);
         try {
             await updateDoc(tradeRef, dataToSave as any);
@@ -355,10 +473,13 @@ export default function JournalPage() {
             Log your trades and reflect on your decisions.
           </p>
         </div>
-        <Button onClick={handleOpenAddDialog}>
-            <PlusCircle className="mr-2" />
-            Add Trade
-        </Button>
+        <div className="flex items-center gap-2">
+            <AddTradeWithAiDialog onTradeParsed={handleTradeParsed} />
+            <Button onClick={() => handleOpenAddDialog()}>
+                <PlusCircle className="mr-2" />
+                Add Trade
+            </Button>
+        </div>
       </div>
 
        <Dialog open={isTradeDialogOpen} onOpenChange={(isOpen) => {
@@ -369,9 +490,9 @@ export default function JournalPage() {
        }}>
           <DialogContent className="sm:max-w-xl">
             <DialogHeader>
-              <DialogTitle>{editingTrade ? 'Edit Trade' : 'Add New Trade'}</DialogTitle>
+              <DialogTitle>{editingTrade?.id ? 'Edit Trade' : 'Add New Trade'}</DialogTitle>
               <DialogDescription>
-                {editingTrade ? 'Update the details of your trade.' : 'Log a new trade. You can select multiple accounts.'}
+                {editingTrade?.id ? 'Update the details of your trade.' : 'Log a new trade. You can select multiple accounts.'}
               </DialogDescription>
             </DialogHeader>
             <AddTradeFlow 

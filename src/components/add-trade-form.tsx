@@ -63,7 +63,7 @@ const formSchema = z.object({
   pair: z.string().min(1, "Currency pair is required."),
   date: z.date({ required_error: "A date is required." }),
   type: z.enum(["buy", "sell"]),
-  setups: z.string().min(1, "Trading setup is required."),
+  setup: z.string().min(1, "Trading setup is required."),
   notes: z.string().optional(),
   confidence: z.number().min(0).max(100).default(50),
   mentalState: z.string().optional(),
@@ -85,14 +85,13 @@ export type Trade = AddTradeFormValues & {
     id: string; 
     userId: string; 
     deleted?: boolean;
-    setup: string; // Renamed from setups
 };
 
 
 type AddTradeFormProps = {
   onSubmit: (values: AddTradeFormValues) => void;
   onBack: () => void;
-  initialData?: Omit<Trade, 'id' | 'userId' | 'date'> & { date: Date };
+  initialData?: Partial<AddTradeFormValues>;
   accounts: Account[];
   checklistData?: {
     items: (ChecklistItem & { checked: boolean })[];
@@ -206,24 +205,24 @@ function PreTradeChecklist({ onContinue, isEditMode }: { onContinue: (data: { it
 
 function AddTradeForm({ onSubmit, onBack, initialData, accounts, checklistData }: AddTradeFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isEditMode = !!initialData;
+  const isEditMode = !!initialData?.id;
   const [applyAllRr, setApplyAllRr] = useState('');
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       pair: initialData?.pair || "",
-      date: initialData?.date || new Date(),
+      date: initialData?.date ? parseISO(initialData.date as any) : new Date(),
       type: initialData?.type || "buy",
-      setups: initialData?.setup || "",
+      setup: initialData?.setup || "",
       notes: initialData?.notes || "",
       confidence: initialData?.confidence || 50,
       mentalState: initialData?.mentalState || "",
       screenshot: initialData?.screenshot || "",
       rrValues: initialData?.accountIds?.map(id => ({
           accountId: id,
-          rr: initialData.rrDetails?.[id] ?? initialData.rr
-      })) || (accounts.length > 0 ? [{ accountId: accounts[0].id, rr: 2 }] : []),
+          rr: initialData.rrDetails?.[id] ?? initialData.rr ?? 0
+      })) || (accounts.length > 0 ? [{ accountId: accounts[0].id, rr: initialData?.rr ?? 2 }] : []),
       preTradeChecklist: initialData?.preTradeChecklist || checklistData?.items,
       setupGrade: initialData?.setupGrade || checklistData?.grade,
     },
@@ -272,19 +271,10 @@ function AddTradeForm({ onSubmit, onBack, initialData, accounts, checklistData }
     const rr = values.rrValues.length > 0 ? values.rrValues[0].rr : 0;
     
     const finalValues: AddTradeFormValues = {
-        pair: values.pair,
-        date: values.date,
-        type: values.type,
-        setup: values.setups,
-        notes: values.notes,
-        confidence: values.confidence,
-        mentalState: values.mentalState,
-        screenshot: values.screenshot,
+        ...values,
         accountIds: accountIds,
         rrDetails: rrDetails,
         rr: rr,
-        preTradeChecklist: values.preTradeChecklist,
-        setupGrade: values.setupGrade,
     };
     
     onSubmit(finalValues);
@@ -452,7 +442,7 @@ function AddTradeForm({ onSubmit, onBack, initialData, accounts, checklistData }
 
         <FormField
           control={form.control}
-          name="setups"
+          name="setup"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Setup</FormLabel>
@@ -559,11 +549,11 @@ export function AddTradeFlow({
     onDone,
 }: { 
     onSubmit: (values: AddTradeFormValues) => void,
-    initialData?: Omit<Trade, 'id' | 'userId' | 'date' | 'setups'> & { date: Date, setup: string },
+    initialData?: Partial<AddTradeFormValues>,
     accounts: Account[],
     onDone: () => void,
 }) {
-    const [step, setStep] = useState(initialData ? 2 : 1);
+    const [step, setStep] = useState(initialData?.id ? 2 : 1);
     const [checklistData, setChecklistData] = useState<{
         items: ChecklistItemWithState[];
         grade: string;
@@ -573,9 +563,15 @@ export function AddTradeFlow({
         setChecklistData(data);
         setStep(2);
     }
+    
+    useEffect(() => {
+        if(initialData && !initialData.id) { // This means it's from AI parser
+            setStep(2);
+        }
+    }, [initialData])
 
     if (step === 1) {
-        return <PreTradeChecklist onContinue={handleChecklistContinue} isEditMode={!!initialData} />;
+        return <PreTradeChecklist onContinue={handleChecklistContinue} isEditMode={!!initialData?.id} />;
     }
 
     return <AddTradeForm 
