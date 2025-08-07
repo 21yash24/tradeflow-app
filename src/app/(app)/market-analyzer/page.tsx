@@ -2,7 +2,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
@@ -174,11 +173,8 @@ const AiThinker = () => {
     };
 
     return (
-        <Card className="h-full flex flex-col max-h-[85vh]">
-            <CardHeader>
-                <CardTitle className='font-headline'>AI Analyst</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-grow p-4 overflow-y-auto" ref={scrollRef}>
+        <div className="flex flex-col h-full">
+            <div className="flex-grow p-4 overflow-y-auto" ref={scrollRef}>
                 {messages.length === 0 ? (
                      <div className="flex flex-col h-full items-center justify-center text-center">
                         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
@@ -229,7 +225,7 @@ const AiThinker = () => {
                         ))}
                     </div>
                 )}
-            </CardContent>
+            </div>
             
             <div className="p-2 border-t bg-background">
                 <form onSubmit={handleSubmit} className="flex items-start gap-1">
@@ -266,13 +262,13 @@ const AiThinker = () => {
                     </div>
                 </form>
             </div>
-        </Card>
+        </div>
     )
 }
 
 export default function MarketAnalyzerPage() {
   return (
-    <div className="h-full">
+    <div className="h-full -m-4 md:-m-6 lg:-m-8">
         <AiThinker />
     </div>
   );
