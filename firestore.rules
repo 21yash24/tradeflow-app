@@ -1,66 +1,67 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuth() {
+    // Helper function to check if a user is authenticated
+    function isSignedIn() {
       return request.auth != null;
     }
 
+    // Helper function to check if the user is the owner of a document
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
+    // Users:
+    // - Anyone can read public user profiles.
+    // - Only the owner can create or update their own profile.
     match /users/{userId} {
-      allow read: if isAuth();
-      allow create, update: if isAuth() && isOwner(userId);
-      
-      match /following/{targetId} {
-        allow read, write: if isAuth() && isOwner(userId);
-      }
+      allow read: if true;
+      allow create, update: if isSignedIn() && isOwner(userId);
+
+      // Followers/Following Subcollections:
+      // - Reading followers/following lists is restricted to signed-in users.
+      // - Writes are handled by server-side logic (transactions) but the rule must allow it.
       match /followers/{followerId} {
-        allow read: if isAuth();
-        allow write: if isAuth() && request.auth.uid == followerId;
+        allow read, create, delete: if isSignedIn();
       }
-    }
-
-    match /posts/{postId} {
-      allow list, read: if isAuth();
-      allow create: if isAuth();
-      allow update, delete: if isAuth() && isOwner(resource.data.authorId);
-
-      match /comments/{commentId} {
-        allow list, read, create: if isAuth();
-        allow update, delete: if false; // Comments are immutable for now
+      match /following/{followingId} {
+        allow read, create, delete: if isSignedIn();
       }
     }
     
-    match /trades/{tradeId} {
-        allow read, write: if isAuth() && isOwner(resource.data.userId);
-    }
-    // This allows a user to query their own trades
-    match /trades/{tradeId} {
-        allow list: if isAuth() && request.query.where.constraints[0].value == request.auth.uid;
-    }
+    // Posts:
+    // - Any signed-in user can read and create posts.
+    // - Only the author can update or delete their own post.
+    match /posts/{postId} {
+      allow read, create: if isSignedIn();
+      allow update, delete: if isSignedIn() && isOwner(resource.data.authorId);
 
-    match /accounts/{accountId} {
-        allow read, write: if isAuth() && isOwner(resource.data.userId);
+      // Comments Subcollection:
+      // - Any signed-in user can read or add comments to any post.
+      match /comments/{commentId} {
+        allow read, create: if isSignedIn();
+        // Allow comment authors to delete their own comments (optional feature)
+        allow delete: if isSignedIn() && isOwner(resource.data.authorId);
+      }
     }
-    // This allows a user to query their own accounts
-    match /accounts/{accountId} {
-        allow list: if isAuth() && request.query.where.constraints[0].value == request.auth.uid;
+    
+    // Trades, Accounts, Discipline, Streaks:
+    // - These collections contain private user data.
+    // - Allow full access (read, write, delete) only to the user who owns the data.
+    match /trades/{tradeId} {
+      allow read, write, delete: if isSignedIn() && isOwner(resource.data.userId);
     }
-
+    match /accounts/{accountId} {
+      allow read, write, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
     match /discipline/{disciplineId} {
-        allow read, write: if isAuth() && request.auth.uid == disciplineId.split('_')[0];
+      allow read, write, delete: if isSignedIn() && isOwner(resource.data.userId);
     }
-    // This allows a user to query their own discipline entries
-     match /discipline/{disciplineId} {
-        allow list: if isAuth() && request.query.where.constraints[0].value == request.auth.uid;
-    }
-
-    match /streaks/{userId} {
-      allow read, write: if isAuth() && isOwner(userId);
+     match /streaks/{streakId} {
+      allow read, write, delete: if isSignedIn() && isOwner(streakId);
     }
   }
 }
