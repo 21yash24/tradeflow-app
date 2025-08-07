@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2, Edit, Undo, EyeOff, Check, X, Send } from "lucide-react";
@@ -99,7 +99,7 @@ const AddTradeWithAiDialog = ({
     const [isLoading, setIsLoading] = useState(false);
     const [text, setText] = useState("");
     const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -748,5 +748,7 @@ export default function JournalPage() {
     </div>
   );
 }
+
+    
 
     
