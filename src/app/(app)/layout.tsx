@@ -259,7 +259,7 @@ export default function AppLayout({
         <DesktopSidebar />
         <main className={cn(
             "flex-1 flex flex-col lg:ml-64 pb-20 lg:pb-0",
-             !isAnalystPage && "p-4 md:p-6 lg:p-8"
+             isAnalystPage ? 'p-0' : "p-4 md:p-6"
         )}>
              <div className={cn(
                  "lg:hidden flex justify-between items-center",
@@ -285,5 +285,3 @@ export default function AppLayout({
     </div>
   );
 }
-
-    
