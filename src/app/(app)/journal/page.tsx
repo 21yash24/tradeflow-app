@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PlusCircle, Image as ImageIcon, FileText, Wand2, Loader2, Trash2, Edit, Undo, EyeOff, Check, X, Send } from "lucide-react";
@@ -286,6 +286,7 @@ export default function JournalPage() {
         ...values,
         userId: user.uid,
         date: format(values.date, 'yyyy-MM-dd'),
+        preTradeChecklist: values.preTradeChecklist || null,
     };
     
     // This is for editing an existing trade
@@ -753,3 +754,4 @@ export default function JournalPage() {
     
 
     
+
