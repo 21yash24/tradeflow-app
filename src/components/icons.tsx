@@ -1,4 +1,3 @@
-
 import type { SVGProps } from "react";
 
 export const TradeFlowLogo = (props: SVGProps<SVGSVGElement>) => (
@@ -22,11 +21,11 @@ export const TradeFlowLogo = (props: SVGProps<SVGSVGElement>) => (
         <path
             d="M59,165l46-48 52,32 58-64"
             fill="none"
-            stroke="hsl(var(--card-foreground))"
+            stroke="hsl(var(--primary-foreground))"
             strokeWidth="12"
             strokeLinecap="round"
             strokeLinejoin="round"
         />
-        <circle cx="105" cy="117" r="10" fill="hsl(var(--card-foreground))" stroke="hsl(var(--primary))" strokeWidth="4" />
+        <circle cx="105" cy="117" r="10" fill="hsl(var(--primary-foreground))" stroke="hsl(var(--primary))" strokeWidth="4" />
     </svg>
 );
