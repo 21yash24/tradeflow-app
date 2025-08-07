@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
-import { Loader2, Paperclip, Send, TrendingDown, Layers, Target, Wand2, Lightbulb, ShieldCheck, AlertCircle, CheckCircle, TrendingUp, MinusCircle } from 'lucide-react';
+import { Loader2, Paperclip, Send, TrendingDown, Layers, Target, Wand2, Lightbulb, ShieldCheck, AlertCircle, CheckCircle, TrendingUp, MinusCircle, ArrowUp } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -82,12 +82,12 @@ function BotMessage({ output }: { output: ThinkerOutput }) {
     return <p>{output.answer}</p>;
 }
 
-const examplePrompts = [
-    "Analyze this chart for me.",
-    "Review my last trade on EUR/USD.",
-    "What are my common trading mistakes?",
-    "How can I improve my trading discipline?",
-]
+const WelcomeAsterisk = () => (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 4.00002L17.2929 14.7071L28 16L17.2929 17.2929L16 28L14.7071 17.2929L4 16L14.7071 14.7071L16 4.00002Z" fill="hsl(var(--primary))" stroke="hsl(var(--primary))" strokeWidth="2"/>
+    </svg>
+)
+
 
 const AiThinker = () => {
     const [user] = useAuthState(auth);
@@ -100,7 +100,6 @@ const AiThinker = () => {
     const { toast } = useToast();
 
     useEffect(() => {
-        // Scroll to the bottom of the chat on new messages
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
@@ -111,7 +110,6 @@ const AiThinker = () => {
         setMessages(prev => {
             const lastMessage = prev[prev.length - 1];
             if (lastMessage?.isTyping) {
-                // Replace typing indicator with the actual message
                 return [...prev.slice(0, -1), newMessage];
             }
             return [...prev, newMessage];
@@ -137,10 +135,6 @@ const AiThinker = () => {
         const currentInput = prompt || input;
         if ((!currentInput.trim() && !imagePreview) || isLoading || !user) return;
         
-        if (messages.length === 0) {
-            addMessage('bot', "Hello! I'm your AI trading thinker. How can I help you today?");
-        }
-
         const userMessage = (
             <div>
                 {currentInput}
@@ -171,102 +165,146 @@ const AiThinker = () => {
             setIsLoading(false);
         }
     };
+    
+    // Initial welcome screen state
+    if (messages.length === 0) {
+        return (
+            <div className="flex flex-col h-full w-full items-center justify-center p-4">
+                <div className="flex-grow flex items-center justify-center w-full">
+                    <motion.div 
+                        initial={{ scale: 0.9, opacity: 0 }} 
+                        animate={{ scale: 1, opacity: 1 }} 
+                        transition={{ delay: 0.2, duration: 0.5 }}
+                        className="w-full max-w-2xl"
+                    >
+                        <div className="flex items-center justify-center gap-3 mb-8">
+                             <WelcomeAsterisk />
+                             <h1 className="text-4xl font-headline font-bold">
+                                {user?.displayName ? `${user.displayName.split(' ')[0]} returns!` : 'Hello!'}
+                            </h1>
+                        </div>
 
+                        <div className="relative rounded-xl border bg-card/80 shadow-lg p-3">
+                             <form onSubmit={handleSubmit}>
+                                <Textarea
+                                    placeholder="How can I help you today?"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    rows={3}
+                                    className="bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-base resize-none"
+                                    disabled={isLoading}
+                                     onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            handleSubmit(e, input);
+                                        }
+                                    }}
+                                />
+                                 {imagePreview && (
+                                    <div className="pl-4 pb-2">
+                                        <div className="relative w-24 h-24">
+                                            <Image src={imagePreview} alt="Preview" layout="fill" objectFit="cover" className="rounded-md border" />
+                                            <button type="button" onClick={() => setImagePreview(null)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-xs">
+                                                &times;
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="flex items-center justify-between mt-2">
+                                    <div className="flex items-center gap-2">
+                                        <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
+                                         <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-full" onClick={() => fileInputRef.current?.click()}>
+                                             <Paperclip className="h-4 w-4" />
+                                             <span className="sr-only">Attach image</span>
+                                         </Button>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button type="submit" size="icon" className="rounded-full bg-primary/90 hover:bg-primary h-8 w-8" disabled={isLoading || (!input.trim() && !imagePreview)}>
+                                            {isLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <ArrowUp className="h-4 w-4" />}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                    </motion.div>
+                </div>
+            </div>
+        )
+    }
+
+    // Chat view after first message
     return (
         <div className="flex flex-col h-full">
             <div className="flex-grow p-4 overflow-y-auto" ref={scrollRef}>
-                {messages.length === 0 ? (
-                     <div className="flex flex-col h-full items-center justify-center text-center">
-                        <div className="flex flex-col items-center justify-center flex-grow">
-                            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
-                                <div className="bg-primary/20 p-4 rounded-full">
-                                    <div className="bg-primary/80 p-3 rounded-full">
-                                         <TradeFlowLogo className="h-16 w-16 text-primary-foreground" />
+                <div className="space-y-6 max-w-3xl mx-auto">
+                    {messages.map((msg) => (
+                        <motion.div 
+                            key={msg.id} 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className={cn("flex items-end gap-3", msg.sender === 'user' && 'justify-end')}
+                        >
+                            {msg.sender === 'bot' && (
+                                <Avatar className="h-8 w-8 self-start flex-shrink-0">
+                                    <div className="bg-primary rounded-full p-1.5">
+                                        <TradeFlowLogo className="text-primary-foreground" />
                                     </div>
-                                </div>
-                            </motion.div>
-                            <h2 className="text-2xl font-semibold mt-4 font-headline">Your Personal Trading Analyst</h2>
-                            <p className="text-muted-foreground mt-2 mb-6 max-w-md">Ask me anything about your charts, past trades, or trading psychology to get data-driven insights.</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
-                            {examplePrompts.map((prompt, i) => (
-                                    <motion.div key={prompt} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 + i * 0.1, duration: 0.4 }}>
-                                        <Button variant="outline" className="w-full text-left justify-start h-auto py-2" onClick={(e) => handleSubmit(e, prompt)}>
-                                            <p className="whitespace-normal text-sm">{prompt}</p>
-                                        </Button>
-                                    </motion.div>
-                            ))}
+                                </Avatar>
+                            )}
+                            <div className={cn(
+                                "max-w-md lg:max-w-xl p-3 rounded-2xl",
+                                msg.sender === 'bot' ? 'bg-muted rounded-bl-none' : 'bg-primary text-primary-foreground rounded-br-none'
+                            )}>
+                                {msg.isTyping ? (
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                        <span className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                        <span className="h-2 w-2 bg-current rounded-full animate-bounce" />
+                                    </div>
+                                ) : msg.content}
                             </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="space-y-6">
-                        {messages.map((msg) => (
-                            <motion.div 
-                                key={msg.id} 
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.3 }}
-                                className={cn("flex items-end gap-3", msg.sender === 'user' && 'justify-end')}
-                            >
-                                {msg.sender === 'bot' && (
-                                    <Avatar className="h-8 w-8 self-start flex-shrink-0">
-                                        <div className="bg-primary rounded-full p-1.5">
-                                            <TradeFlowLogo className="text-primary-foreground" />
-                                        </div>
-                                    </Avatar>
-                                )}
-                                <div className={cn(
-                                    "max-w-md p-3 rounded-2xl",
-                                    msg.sender === 'bot' ? 'bg-muted rounded-bl-none' : 'bg-primary text-primary-foreground rounded-br-none'
-                                )}>
-                                    {msg.isTyping ? (
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                            <span className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                            <span className="h-2 w-2 bg-current rounded-full animate-bounce" />
-                                        </div>
-                                    ) : msg.content}
-                                </div>
-                            </motion.div>
-                        ))}
-                    </div>
-                )}
+                        </motion.div>
+                    ))}
+                </div>
             </div>
             
             <div className="p-2 border-t bg-background">
-                <form onSubmit={handleSubmit} className="flex items-start gap-1">
-                     <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
-                     <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()}>
-                         <Paperclip className="h-5 w-5" />
-                         <span className="sr-only">Attach image</span>
-                     </Button>
-                    <div className="flex-grow relative">
-                        {imagePreview && (
-                            <div className="absolute bottom-full left-0 mb-2 p-1 bg-muted rounded-md border">
-                                <Image src={imagePreview} alt="Preview" width={80} height={60} className="rounded-sm" />
-                                 <button type="button" onClick={() => setImagePreview(null)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-xs">
-                                    &times;
-                                </button>
-                            </div>
-                        )}
-                        <Textarea
-                            placeholder="Ask the AI to analyze a chart, review a past trade, or discuss your trading psychology..."
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            rows={1}
-                            className="flex-grow resize-none pr-12"
-                            disabled={isLoading}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    handleSubmit(e, input);
-                                }
-                            }}
-                        />
-                         <Button type="submit" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" disabled={isLoading || (!input.trim() && !imagePreview)}>
-                            {isLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4" />}
-                        </Button>
-                    </div>
-                </form>
+                 <div className="max-w-3xl mx-auto">
+                    <form onSubmit={handleSubmit} className="flex items-start gap-1">
+                         <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
+                         <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()}>
+                             <Paperclip className="h-5 w-5" />
+                             <span className="sr-only">Attach image</span>
+                         </Button>
+                        <div className="flex-grow relative">
+                            {imagePreview && (
+                                <div className="absolute bottom-full left-0 mb-2 p-1 bg-muted rounded-md border">
+                                    <Image src={imagePreview} alt="Preview" width={80} height={60} className="rounded-sm" />
+                                     <button type="button" onClick={() => setImagePreview(null)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-xs">
+                                        &times;
+                                    </button>
+                                </div>
+                            )}
+                            <Textarea
+                                placeholder="Ask a follow-up question..."
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                rows={1}
+                                className="flex-grow resize-none pr-12"
+                                disabled={isLoading}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        handleSubmit(e, input);
+                                    }
+                                }}
+                            />
+                             <Button type="submit" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" disabled={isLoading || (!input.trim() && !imagePreview)}>
+                                {isLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     )
@@ -279,3 +317,5 @@ export default function MarketAnalyzerPage() {
     </div>
   );
 }
+
+    

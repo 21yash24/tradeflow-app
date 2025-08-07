@@ -258,12 +258,12 @@ export default function AppLayout({
     <div className="flex min-h-screen bg-background">
         <DesktopSidebar />
         <main className={cn(
-            "flex-1 flex flex-col lg:ml-64",
-            isAnalystPage ? "p-0" : "p-4 md:p-6 lg:p-8 pb-20 lg:pb-8"
+            "flex-1 flex flex-col lg:ml-64 pb-20 lg:pb-0",
+             !isAnalystPage && "p-4 md:p-6 lg:p-8"
         )}>
              <div className={cn(
-                 "lg:hidden flex justify-between items-center mb-4",
-                 isAnalystPage ? "p-4" : "p-0"
+                 "lg:hidden flex justify-between items-center",
+                 isAnalystPage ? "p-4" : "pb-4"
              )}>
                  <Link href="/" className="flex items-center gap-2">
                     <TradeFlowLogo className="h-7 w-auto text-primary" />
@@ -276,7 +276,7 @@ export default function AppLayout({
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
-                className={cn(isAnalystPage && "flex-grow min-h-0")}
+                className={cn("flex-grow min-h-0")}
             >
                 {children}
             </motion.div>
@@ -285,3 +285,5 @@ export default function AppLayout({
     </div>
   );
 }
+
+    
