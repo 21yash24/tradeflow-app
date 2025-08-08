@@ -22,10 +22,8 @@ const nextConfig: NextConfig = {
   env: {
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   },
-  experimental: {
-    // Exclude packages that are not compatible with the Edge runtime
-    serverComponentsExternalPackages: ['@genkit-ai/firebase', 'firebase-admin', 'winston'],
-  }
+  // Exclude packages that are not compatible with the Edge runtime
+  serverExternalPackages: ['@genkit-ai/firebase', 'firebase-admin', 'winston'],
 };
 
 export default nextConfig;
