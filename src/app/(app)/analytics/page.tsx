@@ -173,7 +173,7 @@ const ManageAccountsDialog = ({ accounts, onAccountCreated }: { accounts: Accoun
                                     <FormItem>
                                         
                                         <FormControl>
-                                            <Input type="number" placeholder="Risk Amount Per Trade ($)" value={field.value ?? ''} {...field} />
+                                            <Input type="number" placeholder="Risk Amount Per Trade ($)" {...field} value={field.value ?? ''} />
                                         </FormControl>
                                         <FormDescription>
                                             Optional. If empty, P/L will be calculated as 1% of the balance per R.
@@ -674,3 +674,4 @@ export default function AnalyticsPage() {
         </div>
     );
 }
+    
