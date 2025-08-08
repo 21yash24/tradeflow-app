@@ -1,67 +1,42 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is authenticated
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Helper function to check if the user is the owner of a document
+    // Helper function to check if the user is the owner of the document
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    // Users:
-    // - Anyone can read public user profiles.
-    // - Only the owner can create or update their own profile.
+    // Users can read and write their own profile
     match /users/{userId} {
-      allow read: if true;
-      allow create, update: if isSignedIn() && isOwner(userId);
-
-      // Followers/Following Subcollections:
-      // - Reading followers/following lists is restricted to signed-in users.
-      // - Writes are handled by server-side logic (transactions) but the rule must allow it.
-      match /followers/{followerId} {
-        allow read, create, delete: if isSignedIn();
-      }
-      match /following/{followingId} {
-        allow read, create, delete: if isSignedIn();
-      }
+      allow read, write: if isOwner(userId);
     }
     
-    // Posts:
-    // - Any signed-in user can read and create posts.
-    // - Only the author can update or delete their own post.
-    match /posts/{postId} {
-      allow read, create: if isSignedIn();
-      allow update, delete: if isSignedIn() && isOwner(resource.data.authorId);
-
-      // Comments Subcollection:
-      // - Any signed-in user can read or add comments to any post.
-      match /comments/{commentId} {
-        allow read, create: if isSignedIn();
-        // Allow comment authors to delete their own comments (optional feature)
-        allow delete: if isSignedIn() && isOwner(resource.data.authorId);
-      }
-    }
-    
-    // Trades, Accounts, Discipline, Streaks:
-    // - These collections contain private user data.
-    // - Allow full access (read, write, delete) only to the user who owns the data.
+    // Users can only CRUD their own documents in these collections
     match /trades/{tradeId} {
-      allow read, write, delete: if isSignedIn() && isOwner(resource.data.userId);
+      allow read, write: if isOwner(request.resource.data.userId);
     }
     match /accounts/{accountId} {
-      allow read, write, delete: if isSignedIn() && isOwner(resource.data.userId);
+       allow read, write: if isOwner(request.resource.data.userId);
     }
     match /discipline/{disciplineId} {
-      allow read, write, delete: if isSignedIn() && isOwner(resource.data.userId);
+       allow read, write: if isOwner(request.resource.data.userId);
     }
-     match /streaks/{streakId} {
-      allow read, write, delete: if isSignedIn() && isOwner(streakId);
+    match /streaks/{streakId} {
+      allow read, write: if isOwner(streakId);
+    }
+    
+    // Community Posts
+    match /posts/{postId} {
+      allow read, create: if request.auth != null;
+      allow update, delete: if isOwner(resource.data.authorId);
+
+      // Comments on posts
+      match /comments/{commentId} {
+        allow read, create: if request.auth != null;
+        allow update, delete: if isOwner(resource.data.authorId);
+      }
     }
   }
 }
